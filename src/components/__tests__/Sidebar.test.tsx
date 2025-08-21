@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Contractor, SidewalkSegment, FilterOptions } from '@/types/sidewalk'
 
@@ -143,7 +143,8 @@ describe('Sidebar Component', () => {
       />
     )
 
-    expect(screen.getByText('Park Street')).toBeInTheDocument()
+    // Use more specific selectors to avoid conflicts
+    expect(screen.getByRole('heading', { name: 'Park Street' })).toBeInTheDocument()
     expect(screen.getByText('Smith Construction Co.')).toBeInTheDocument()
     expect(screen.getByText('1925')).toBeInTheDocument()
     expect(screen.getByText('1400')).toBeInTheDocument()
@@ -198,7 +199,9 @@ describe('Sidebar Component', () => {
     )
 
     const searchInput = screen.getByPlaceholderText('Search contractors...')
-    await user.type(searchInput, 'Smith')
+    await act(async () => {
+      await user.type(searchInput, 'Smith')
+    })
 
     // The component should filter the contractors internally
     // We can verify the search input has the value

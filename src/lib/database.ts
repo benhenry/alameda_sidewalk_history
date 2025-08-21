@@ -36,10 +36,14 @@ export function initDatabase() {
       block TEXT NOT NULL,
       notes TEXT,
       special_marks TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected')),
       created_by TEXT,
+      approved_by TEXT,
+      approved_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (created_by) REFERENCES users (id)
+      FOREIGN KEY (created_by) REFERENCES users (id),
+      FOREIGN KEY (approved_by) REFERENCES users (id)
     )
   `)
 
@@ -66,14 +70,36 @@ export function initDatabase() {
     )
   `)
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    )
+  `)
+
+  // Handle migration for existing segments without status
+  db.exec(`
+    UPDATE sidewalk_segments 
+    SET status = 'approved' 
+    WHERE status IS NULL OR status = ''
+  `)
+
   // Create indexes for better performance
   db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_users_username ON users (username)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_segments_contractor ON sidewalk_segments (contractor)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_segments_year ON sidewalk_segments (year)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_segments_street ON sidewalk_segments (street)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_segments_status ON sidewalk_segments (status)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_segments_created_by ON sidewalk_segments (created_by)`)
   db.exec(`CREATE INDEX IF NOT EXISTS idx_photos_segment ON photos (sidewalk_segment_id)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens (token)`)
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_password_reset_user ON password_reset_tokens (user_id)`)
 }
 
 // Initialize database immediately
@@ -113,6 +139,10 @@ export const userQueries = {
   updateRole: db.prepare(`
     UPDATE users SET role = ? WHERE id = ?
   `),
+
+  updatePassword: db.prepare(`
+    UPDATE users SET password_hash = ? WHERE id = ?
+  `),
 }
 
 // Segment operations
@@ -124,6 +154,7 @@ export const segmentQueries = {
            GROUP_CONCAT(p.type) as photo_types
     FROM sidewalk_segments s
     LEFT JOIN photos p ON s.id = p.sidewalk_segment_id
+    WHERE s.status = 'approved'
     GROUP BY s.id
     ORDER BY s.street, s.block
   `),
@@ -140,8 +171,8 @@ export const segmentQueries = {
   `),
 
   insert: db.prepare(`
-    INSERT INTO sidewalk_segments (id, coordinates, contractor, year, street, block, notes, special_marks, created_by)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO sidewalk_segments (id, coordinates, contractor, year, street, block, notes, special_marks, created_by, status)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')
   `),
 
   update: db.prepare(`
@@ -159,12 +190,51 @@ export const segmentQueries = {
            GROUP_CONCAT(p.type) as photo_types
     FROM sidewalk_segments s
     LEFT JOIN photos p ON s.id = p.sidewalk_segment_id
-    WHERE 1=1
+    WHERE s.status = 'approved'
       AND (? IS NULL OR s.contractor = ?)
       AND (? IS NULL OR s.year = ?)
       AND (? IS NULL OR s.street = ?)
     GROUP BY s.id
     ORDER BY s.street, s.block
+  `),
+
+  // Admin queries
+  getPending: db.prepare(`
+    SELECT s.*, u.username as created_by_username,
+           GROUP_CONCAT(p.id) as photo_ids,
+           GROUP_CONCAT(p.filename) as photo_filenames,
+           GROUP_CONCAT(p.type) as photo_types
+    FROM sidewalk_segments s
+    LEFT JOIN users u ON s.created_by = u.id
+    LEFT JOIN photos p ON s.id = p.sidewalk_segment_id
+    WHERE s.status = 'pending'
+    GROUP BY s.id
+    ORDER BY s.created_at ASC
+  `),
+
+  approve: db.prepare(`
+    UPDATE sidewalk_segments 
+    SET status = 'approved', approved_by = ?, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `),
+
+  reject: db.prepare(`
+    UPDATE sidewalk_segments 
+    SET status = 'rejected', approved_by = ?, approved_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ?
+  `),
+
+  getAllWithStatus: db.prepare(`
+    SELECT s.*, u.username as created_by_username, a.username as approved_by_username,
+           GROUP_CONCAT(p.id) as photo_ids,
+           GROUP_CONCAT(p.filename) as photo_filenames,
+           GROUP_CONCAT(p.type) as photo_types
+    FROM sidewalk_segments s
+    LEFT JOIN users u ON s.created_by = u.id
+    LEFT JOIN users a ON s.approved_by = a.id
+    LEFT JOIN photos p ON s.id = p.sidewalk_segment_id
+    GROUP BY s.id
+    ORDER BY s.created_at DESC
   `),
 }
 
@@ -209,6 +279,36 @@ export const contractorQueries = {
       SELECT COUNT(*) FROM sidewalk_segments WHERE contractor = contractors.name
     )
     WHERE name = ?
+  `),
+}
+
+// Password reset token operations
+export const passwordResetQueries = {
+  create: db.prepare(`
+    INSERT INTO password_reset_tokens (id, user_id, token, expires_at)
+    VALUES (?, ?, ?, ?)
+  `),
+
+  getByToken: db.prepare(`
+    SELECT prt.*, u.email, u.username
+    FROM password_reset_tokens prt
+    JOIN users u ON prt.user_id = u.id
+    WHERE prt.token = ? AND prt.used_at IS NULL AND prt.expires_at > CURRENT_TIMESTAMP
+  `),
+
+  markAsUsed: db.prepare(`
+    UPDATE password_reset_tokens 
+    SET used_at = CURRENT_TIMESTAMP 
+    WHERE token = ?
+  `),
+
+  cleanupExpired: db.prepare(`
+    DELETE FROM password_reset_tokens 
+    WHERE expires_at < CURRENT_TIMESTAMP OR used_at IS NOT NULL
+  `),
+
+  deleteByUserId: db.prepare(`
+    DELETE FROM password_reset_tokens WHERE user_id = ?
   `),
 }
 

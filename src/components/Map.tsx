@@ -7,12 +7,14 @@ import { SidewalkSegment, FilterOptions } from '@/types/sidewalk'
 import { Info } from 'lucide-react'
 
 // Fix for default markers in react-leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png',
-})
+if (typeof window !== 'undefined') {
+  delete (L.Icon.Default.prototype as any)._getIconUrl
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon-2x.png',
+    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-icon.png',
+    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.1/images/marker-shadow.png',
+  })
+}
 
 interface MapProps {
   segments: SidewalkSegment[]
@@ -22,139 +24,6 @@ interface MapProps {
 
 // Alameda, CA coordinates
 const ALAMEDA_CENTER: [number, number] = [37.7652, -122.2416]
-
-// Default street segments for unmapped areas (approximate major streets in Alameda)
-const DEFAULT_STREET_SEGMENTS = [
-  // Park Street (main commercial strip)
-  {
-    id: 'default-park-st-north',
-    name: 'Park Street (North Side)',
-    coordinates: [
-      [37.7580, -122.2420],
-      [37.7590, -122.2420],
-      [37.7600, -122.2420],
-      [37.7610, -122.2420],
-      [37.7620, -122.2420],
-      [37.7630, -122.2420],
-      [37.7640, -122.2420],
-      [37.7650, -122.2420],
-      [37.7660, -122.2420],
-      [37.7670, -122.2420],
-      [37.7680, -122.2420],
-      [37.7690, -122.2420],
-      [37.7700, -122.2420],
-      [37.7710, -122.2420],
-      [37.7720, -122.2420]
-    ] as [number, number][]
-  },
-  {
-    id: 'default-park-st-south',
-    name: 'Park Street (South Side)', 
-    coordinates: [
-      [37.7580, -122.2425],
-      [37.7590, -122.2425],
-      [37.7600, -122.2425],
-      [37.7610, -122.2425],
-      [37.7620, -122.2425],
-      [37.7630, -122.2425],
-      [37.7640, -122.2425],
-      [37.7650, -122.2425],
-      [37.7660, -122.2425],
-      [37.7670, -122.2425],
-      [37.7680, -122.2425],
-      [37.7690, -122.2425],
-      [37.7700, -122.2425],
-      [37.7710, -122.2425],
-      [37.7720, -122.2425]
-    ] as [number, number][]
-  },
-  // Webster Street
-  {
-    id: 'default-webster-st-north',
-    name: 'Webster Street (North Side)',
-    coordinates: [
-      [37.7580, -122.2380],
-      [37.7590, -122.2380],
-      [37.7600, -122.2380],
-      [37.7610, -122.2380],
-      [37.7620, -122.2380],
-      [37.7630, -122.2380],
-      [37.7640, -122.2380],
-      [37.7650, -122.2380],
-      [37.7660, -122.2380],
-      [37.7670, -122.2380],
-      [37.7680, -122.2380],
-      [37.7690, -122.2380],
-      [37.7700, -122.2380],
-      [37.7710, -122.2380],
-      [37.7720, -122.2380]
-    ] as [number, number][]
-  },
-  {
-    id: 'default-webster-st-south',
-    name: 'Webster Street (South Side)',
-    coordinates: [
-      [37.7580, -122.2385],
-      [37.7590, -122.2385],
-      [37.7600, -122.2385],
-      [37.7610, -122.2385],
-      [37.7620, -122.2385],
-      [37.7630, -122.2385],
-      [37.7640, -122.2385],
-      [37.7650, -122.2385],
-      [37.7660, -122.2385],
-      [37.7670, -122.2385],
-      [37.7680, -122.2385],
-      [37.7690, -122.2385],
-      [37.7700, -122.2385],
-      [37.7710, -122.2385],
-      [37.7720, -122.2385]
-    ] as [number, number][]
-  },
-  // Central Avenue
-  {
-    id: 'default-central-ave-north',
-    name: 'Central Avenue (North Side)',
-    coordinates: [
-      [37.7580, -122.2460],
-      [37.7590, -122.2460],
-      [37.7600, -122.2460],
-      [37.7610, -122.2460],
-      [37.7620, -122.2460],
-      [37.7630, -122.2460],
-      [37.7640, -122.2460],
-      [37.7650, -122.2460],
-      [37.7660, -122.2460],
-      [37.7670, -122.2460],
-      [37.7680, -122.2460],
-      [37.7690, -122.2460],
-      [37.7700, -122.2460],
-      [37.7710, -122.2460],
-      [37.7720, -122.2460]
-    ] as [number, number][]
-  },
-  {
-    id: 'default-central-ave-south',
-    name: 'Central Avenue (South Side)',
-    coordinates: [
-      [37.7580, -122.2465],
-      [37.7590, -122.2465],
-      [37.7600, -122.2465],
-      [37.7610, -122.2465],
-      [37.7620, -122.2465],
-      [37.7630, -122.2465],
-      [37.7640, -122.2465],
-      [37.7650, -122.2465],
-      [37.7660, -122.2465],
-      [37.7670, -122.2465],
-      [37.7680, -122.2465],
-      [37.7690, -122.2465],
-      [37.7700, -122.2465],
-      [37.7710, -122.2465],
-      [37.7720, -122.2465]
-    ] as [number, number][]
-  }
-]
 
 const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions) => {
   if (filters.contractor && segment.contractor !== filters.contractor) return '#cccccc'
@@ -182,22 +51,6 @@ const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions) => {
   return colors[decade] || '#666666'
 }
 
-// Check if a default segment overlaps with any mapped segments
-const isDefaultSegmentMapped = (defaultSegment: any, mappedSegments: SidewalkSegment[]) => {
-  return mappedSegments.some(segment => {
-    // Check if any coordinates from the mapped segment are close to the default segment
-    return segment.coordinates.some(coord => {
-      return defaultSegment.coordinates.some((defaultCoord: [number, number]) => {
-        const distance = Math.sqrt(
-          Math.pow(coord[0] - defaultCoord[0], 2) + 
-          Math.pow(coord[1] - defaultCoord[1], 2)
-        )
-        // If within ~50 meters (roughly 0.0005 degrees)
-        return distance < 0.0005
-      })
-    })
-  })
-}
 
 function MapEvents({ onMapClick }: { onMapClick: (latlng: [number, number]) => void }) {
   useMapEvents({
@@ -236,30 +89,6 @@ export default function Map({ segments, filters, onSegmentClick }: MapProps) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapEvents onMapClick={handleMapClick} />
-        
-        {/* Default red segments for unmapped areas */}
-        {DEFAULT_STREET_SEGMENTS
-          .filter(defaultSegment => !isDefaultSegmentMapped(defaultSegment, segments))
-          .map((defaultSegment) => (
-            <Polyline
-              key={defaultSegment.id}
-              positions={defaultSegment.coordinates}
-              color="#DC2626"
-              weight={4}
-              opacity={0.6}
-              dashArray="5, 5"
-            >
-              <Popup>
-                <div className="p-2">
-                  <h3 className="font-bold text-red-700">{defaultSegment.name}</h3>
-                  <p className="text-red-600">No sidewalk data available</p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Click the "Contribute" button to add sidewalk information for this area.
-                  </p>
-                </div>
-              </Popup>
-            </Polyline>
-          ))}
         
         {/* Mapped segments with actual data */}
         {segments.map((segment) => (

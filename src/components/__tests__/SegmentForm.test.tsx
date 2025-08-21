@@ -3,6 +3,10 @@ import userEvent from '@testing-library/user-event'
 import SegmentForm from '../SegmentForm'
 import { SidewalkSegment } from '@/types/sidewalk'
 
+// Mock fetch for sidewalk data
+global.fetch = jest.fn()
+const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
+
 const mockOnSave = jest.fn()
 const mockOnCancel = jest.fn()
 
@@ -22,6 +26,12 @@ const mockSegment: SidewalkSegment = {
 describe('SegmentForm Component', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: jest.fn().mockResolvedValue({
+        coordinates: [[37.7652, -122.2416], [37.7653, -122.2417]]
+      })
+    } as any)
   })
 
   it('renders form title for new segment', () => {
@@ -75,7 +85,7 @@ describe('SegmentForm Component', () => {
     expect(screen.getByText('P')).toBeInTheDocument()
   })
 
-  it('displays existing coordinates', () => {
+  it('renders the interactive segment drawer', async () => {
     render(
       <SegmentForm
         segment={mockSegment}
@@ -84,8 +94,9 @@ describe('SegmentForm Component', () => {
       />
     )
 
-    expect(screen.getByText('37.765200, -122.241600')).toBeInTheDocument()
-    expect(screen.getByText('37.766000, -122.242000')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument()
+    })
   })
 
   it('calls onCancel when cancel button is clicked', async () => {
@@ -114,6 +125,11 @@ describe('SegmentForm Component', () => {
       />
     )
 
+    // Wait for map to load
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument()
+    })
+
     // Find the form and trigger submit event
     const form = document.querySelector('form')
     if (form) {
@@ -124,18 +140,6 @@ describe('SegmentForm Component', () => {
     expect(mockOnSave).not.toHaveBeenCalled()
     
     alertSpy.mockRestore()
-  })
-
-  it('displays coordinate input placeholders', () => {
-    render(
-      <SegmentForm
-        onSave={mockOnSave}
-        onCancel={mockOnCancel}
-      />
-    )
-
-    expect(screen.getByPlaceholderText('Latitude (37.7652)')).toBeInTheDocument()
-    expect(screen.getByPlaceholderText('Longitude (-122.2416)')).toBeInTheDocument()
   })
 
   it('displays special mark input placeholder', () => {
@@ -149,7 +153,7 @@ describe('SegmentForm Component', () => {
     expect(screen.getByPlaceholderText('Add special mark (e.g., P for pipe)')).toBeInTheDocument()
   })
 
-  it('shows coordinate bounds helper text', () => {
+  it('shows loading state while fetching sidewalk data', () => {
     render(
       <SegmentForm
         onSave={mockOnSave}
@@ -157,7 +161,22 @@ describe('SegmentForm Component', () => {
       />
     )
 
-    expect(screen.getByText(/Alameda bounds: Lat 37.7-37.8, Lng -122.3--122.2/)).toBeInTheDocument()
+    expect(screen.getByText('Loading sidewalk data...')).toBeInTheDocument()
+  })
+
+  it('displays segment location section', async () => {
+    render(
+      <SegmentForm
+        onSave={mockOnSave}
+        onCancel={mockOnCancel}
+      />
+    )
+
+    expect(screen.getByText('Segment Location *')).toBeInTheDocument()
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument()
+    })
   })
 
   it('renders save button with save icon', () => {
@@ -187,6 +206,6 @@ describe('SegmentForm Component', () => {
     expect(screen.getByText('Block *')).toBeInTheDocument()
     expect(screen.getByText('Notes')).toBeInTheDocument()
     expect(screen.getByText('Special Marks')).toBeInTheDocument()
-    expect(screen.getByText('Coordinates *')).toBeInTheDocument()
+    expect(screen.getByText('Segment Location *')).toBeInTheDocument()
   })
 })

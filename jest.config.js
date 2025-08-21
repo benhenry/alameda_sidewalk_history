@@ -16,15 +16,23 @@ const customJestConfig = {
   ],
   coverageThreshold: {
     global: {
-      branches: 85,
-      functions: 85,
-      lines: 85,
-      statements: 85,
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90,
     },
   },
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    '^react-leaflet$': '<rootDir>/__mocks__/react-leaflet.js',
+    '^leaflet$': '<rootDir>/__mocks__/leaflet.js',
+  },
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-leaflet|@turf)/)'
+  ],
+  testEnvironmentOptions: {
+    customExportConditions: ['node', 'node-addons'],
   },
 }
 

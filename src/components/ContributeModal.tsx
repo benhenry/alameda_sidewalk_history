@@ -30,10 +30,10 @@ export default function ContributeModal({
       const url = selectedSegment ? `/api/segments/${selectedSegment.id}` : '/api/segments'
       const method = selectedSegment ? 'PUT' : 'POST'
       
-      const token = document.cookie
+      const token = typeof document !== 'undefined' ? document.cookie
         .split('; ')
         .find(row => row.startsWith('auth-token='))
-        ?.split('=')[1]
+        ?.split('=')[1] : null
 
       const response = await fetch(url, {
         method,
@@ -46,12 +46,21 @@ export default function ContributeModal({
 
       if (!response.ok) {
         const error = await response.json()
+        if (response.status === 422 && error.invalidCoordinates) {
+          // Handle validation error with more specific message
+          alert(`Some coordinates are not near known sidewalk locations. Please adjust your segment to follow actual sidewalk paths. Invalid coordinates: ${error.invalidCoordinates.map((c: [number, number]) => `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`).join('; ')}`)
+          return
+        }
         throw new Error(error.error || 'Failed to save segment')
       }
 
       onSegmentSaved()
       onClose()
-      alert(selectedSegment ? 'Segment updated successfully!' : 'Segment created successfully!')
+      if (selectedSegment) {
+        alert('Segment updated successfully!')
+      } else {
+        alert('Segment submitted for review! It will appear on the map once approved by an admin.')
+      }
     } catch (error) {
       console.error('Error saving segment:', error)
       alert(error instanceof Error ? error.message : 'Failed to save segment')

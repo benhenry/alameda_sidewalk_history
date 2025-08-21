@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { X, User, Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { LoginCredentials, RegisterData } from '@/types/auth'
+import ForgotPasswordModal from './ForgotPasswordModal'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -17,6 +18,7 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [showForgotPassword, setShowForgotPassword] = useState(false)
 
   const [loginData, setLoginData] = useState<LoginCredentials>({
     email: '',
@@ -163,6 +165,17 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
+            {mode === 'login' && (
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Forgot password?
+                </button>
+              </div>
+            )}
           </div>
 
           {mode === 'register' && (
@@ -223,6 +236,13 @@ export default function AuthModal({ isOpen, onClose, defaultMode = 'login' }: Au
           </div>
         )}
       </div>
+
+      {/* Forgot Password Modal */}
+      <ForgotPasswordModal
+        isOpen={showForgotPassword}
+        onClose={() => setShowForgotPassword(false)}
+        onBackToLogin={() => setShowForgotPassword(false)}
+      />
     </div>
   )
 }

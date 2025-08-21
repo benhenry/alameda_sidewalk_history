@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { Plus, Edit, Trash2, MapPin, Camera, Upload } from 'lucide-react'
 import SegmentForm from '@/components/SegmentForm'
 import PhotoUpload from '@/components/PhotoUpload'
+import AdminSegmentApproval from '@/components/AdminSegmentApproval'
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 
 const Map = dynamic(() => import('@/components/Map'), { 
@@ -209,6 +210,9 @@ export default function AdminPage() {
 
           {/* Statistics and Data Section */}
           <div className="space-y-6">
+            {/* Segment Approval */}
+            <AdminSegmentApproval />
+
             {/* Statistics */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Statistics</h3>

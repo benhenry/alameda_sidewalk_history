@@ -12,9 +12,15 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:ci": "jest --coverage --watchAll=false",
-    "test:coverage-report": "npm run test:coverage && node scripts/test-coverage.js"
+    "test:coverage-report": "npm run test:coverage && node scripts/test-coverage.js",
+    "migrate-db": "node scripts/migrate-database.js",
+    "fix-db": "node scripts/fix-database.js"
   },
   "dependencies": {
+    "@turf/boolean-point-in-polygon": "^7.2.0",
+    "@turf/buffer": "^7.2.0",
+    "@turf/distance": "^7.2.0",
+    "@turf/turf": "^7.2.0",
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^9.2.2",
     "isomorphic-dompurify": "^2.26.0",

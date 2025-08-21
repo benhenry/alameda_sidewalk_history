@@ -1,8 +1,19 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
 import { SidewalkSegment } from '@/types/sidewalk'
 import { Save, X, MapPin, Plus, Minus } from 'lucide-react'
+
+// Dynamically import to avoid SSR issues with Leaflet
+const InteractiveSegmentDrawer = dynamic(() => import('./InteractiveSegmentDrawer'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+      <span className="text-gray-500">Loading map...</span>
+    </div>
+  )
+})
 
 interface SegmentFormProps {
   segment?: SidewalkSegment
@@ -22,7 +33,26 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
   })
 
   const [newSpecialMark, setNewSpecialMark] = useState('')
-  const [newCoordinate, setNewCoordinate] = useState({ lat: '', lng: '' })
+  const [sidewalkData, setSidewalkData] = useState<[number, number][]>([])
+  const [loadingSidewalks, setLoadingSidewalks] = useState(true)
+
+  // Fetch sidewalk data for overlay
+  useEffect(() => {
+    async function fetchSidewalks() {
+      try {
+        const response = await fetch('/api/sidewalks')
+        if (response.ok) {
+          const data = await response.json()
+          setSidewalkData(data.coordinates || [])
+        }
+      } catch (error) {
+        console.error('Failed to fetch sidewalk data:', error)
+      } finally {
+        setLoadingSidewalks(false)
+      }
+    }
+    fetchSidewalks()
+  }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,33 +85,6 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
     }))
   }
 
-  const addCoordinate = () => {
-    const lat = parseFloat(newCoordinate.lat)
-    const lng = parseFloat(newCoordinate.lng)
-    
-    if (isNaN(lat) || isNaN(lng)) {
-      alert('Please enter valid latitude and longitude values')
-      return
-    }
-
-    if (lat < 37.7 || lat > 37.8 || lng < -122.3 || lng > -122.2) {
-      alert('Coordinates should be within Alameda, CA bounds')
-      return
-    }
-
-    setFormData(prev => ({
-      ...prev,
-      coordinates: [...prev.coordinates, [lat, lng] as [number, number]]
-    }))
-    setNewCoordinate({ lat: '', lng: '' })
-  }
-
-  const removeCoordinate = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      coordinates: prev.coordinates.filter((_, i) => i !== index)
-    }))
-  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -208,53 +211,19 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Coordinates *
+              Segment Location *
             </label>
-            <div className="space-y-2">
-              {formData.coordinates.map((coord, index) => (
-                <div key={index} className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-gray-400" />
-                  <span className="flex-1 px-2 py-1 bg-gray-100 rounded">
-                    {coord[0].toFixed(6)}, {coord[1].toFixed(6)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => removeCoordinate(index)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
-              <div className="flex gap-2">
-                <input
-                  type="number"
-                  step="any"
-                  value={newCoordinate.lat}
-                  onChange={(e) => setNewCoordinate(prev => ({ ...prev, lat: e.target.value }))}
-                  placeholder="Latitude (37.7652)"
-                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                />
-                <input
-                  type="number"
-                  step="any"
-                  value={newCoordinate.lng}
-                  onChange={(e) => setNewCoordinate(prev => ({ ...prev, lng: e.target.value }))}
-                  placeholder="Longitude (-122.2416)"
-                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                />
-                <button
-                  type="button"
-                  onClick={addCoordinate}
-                  className="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
+            {loadingSidewalks ? (
+              <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500">Loading sidewalk data...</span>
               </div>
-              <p className="text-sm text-gray-500">
-                Click on the map or enter coordinates manually. Alameda bounds: Lat 37.7-37.8, Lng -122.3--122.2
-              </p>
-            </div>
+            ) : (
+              <InteractiveSegmentDrawer
+                onCoordinatesChange={(coords) => setFormData(prev => ({ ...prev, coordinates: coords }))}
+                initialCoordinates={formData.coordinates}
+                sidewalkData={sidewalkData}
+              />
+            )}
           </div>
 
           <div className="flex gap-4 pt-4">

@@ -34,7 +34,7 @@ describe('AuthModal Component', () => {
   it('renders login form by default', () => {
     render(<AuthModal isOpen={true} onClose={mockOnClose} />)
     
-    expect(screen.getByText('Sign In')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Enter your email')).toBeInTheDocument()
     expect(screen.getByPlaceholderText('Enter your password')).toBeInTheDocument()
     expect(screen.queryByPlaceholderText('Choose a username')).not.toBeInTheDocument()

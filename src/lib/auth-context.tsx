@@ -33,6 +33,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      // Skip auth check during SSR
+      if (typeof window === 'undefined') {
+        setLoading(false)
+        return
+      }
+
       const token = Cookies.get('auth-token')
       if (!token) {
         setLoading(false)

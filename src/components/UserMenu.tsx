@@ -16,9 +16,11 @@ export default function UserMenu() {
       }
     }
 
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
     }
   }, [])
 
@@ -60,7 +62,9 @@ export default function UserMenu() {
             <button
               onClick={() => {
                 setIsOpen(false)
-                // TODO: Navigate to profile settings
+                if (typeof window !== 'undefined') {
+                  window.location.href = '/api/auth/me'
+                }
               }}
               className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
             >
@@ -72,7 +76,9 @@ export default function UserMenu() {
               <button
                 onClick={() => {
                   setIsOpen(false)
-                  window.location.href = '/admin'
+                  if (typeof window !== 'undefined') {
+                    window.location.href = '/admin'
+                  }
                 }}
                 className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
               >

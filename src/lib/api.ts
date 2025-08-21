@@ -22,13 +22,17 @@ export function handleApiError(response: Response) {
   if (response.status === 401) {
     // Token expired or invalid, redirect to login
     Cookies.remove('auth-token')
-    window.location.href = '/?auth=required'
+    if (typeof window !== 'undefined') {
+      window.location.href = '/?auth=required'
+    }
     return
   }
   
   if (response.status === 403) {
     // Forbidden - user doesn't have permission
-    alert('You do not have permission to perform this action.')
+    if (typeof window !== 'undefined') {
+      alert('You do not have permission to perform this action.')
+    }
     return
   }
   

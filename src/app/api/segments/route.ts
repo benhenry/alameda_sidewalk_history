@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { segmentQueries, contractorQueries, parseCoordinates, stringifyCoordinates, parseSpecialMarks, stringifySpecialMarks } from '@/lib/database'
 import { SidewalkSegment } from '@/types/sidewalk'
+import { validateSidewalkCoordinates, getSidewalkSuggestions } from '@/lib/sidewalk-validation'
 import { v4 as uuidv4 } from 'uuid'
 
 export async function GET(request: NextRequest) {
@@ -56,6 +57,21 @@ export async function POST(request: NextRequest) {
 
     if (!coordinates || !contractor || !year || !street || !block) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    }
+
+    // Validate coordinates against sidewalk data
+    const validation = await validateSidewalkCoordinates(coordinates)
+    if (!validation.isValid) {
+      // Get suggestions for invalid coordinates
+      const suggestions = await Promise.all(
+        validation.invalidCoordinates.map(coord => getSidewalkSuggestions(coord, 25))
+      )
+      
+      return NextResponse.json({ 
+        error: 'Some coordinates are not near known sidewalk locations',
+        invalidCoordinates: validation.invalidCoordinates,
+        suggestions: suggestions.flat()
+      }, { status: 422 })
     }
 
     // Get user ID from middleware-set header
