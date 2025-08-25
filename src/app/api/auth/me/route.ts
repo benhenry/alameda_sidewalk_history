@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { userQueries } from '@/lib/database'
+import { getUserById } from '@/lib/database'
 import { verifyToken } from '@/lib/auth'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,7 +24,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get fresh user data from database
-    const user = userQueries.getById.get(decoded.id)
+    const user = await getUserById(decoded.id)
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -35,8 +37,8 @@ export async function GET(request: NextRequest) {
       email: user.email,
       username: user.username,
       role: user.role,
-      createdAt: user.created_at,
-      lastLoginAt: user.last_login_at
+      createdAt: user.createdAt,
+      lastLoginAt: user.lastLoginAt
     })
 
   } catch (error) {

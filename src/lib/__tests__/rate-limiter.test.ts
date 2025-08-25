@@ -1,157 +1,167 @@
-import { rateLimiter } from '../rate-limiter'
+import { contributionLimiter, authLimiter, withRateLimit } from '../rate-limiter'
+import { NextRequest } from 'next/server'
+
+// Mock NextRequest for testing
+const createMockRequest = (ip: string, headers: Record<string, string> = {}): NextRequest => {
+  return {
+    headers: {
+      get: (name: string) => {
+        if (name === 'x-forwarded-for') return headers['x-forwarded-for'] || ip
+        if (name === 'x-real-ip') return headers['x-real-ip'] || ip
+        return headers[name] || null
+      }
+    },
+    ip
+  } as unknown as NextRequest
+}
 
 describe('rate-limiter', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     jest.useFakeTimers()
+    // Clear the rate limiter stores between tests
+    ;(contributionLimiter as any).store.clear()
+    ;(authLimiter as any).store.clear()
   })
 
   afterEach(() => {
     jest.useRealTimers()
   })
 
-  describe('contributions rate limiter', () => {
-    it('should allow requests within limit', () => {
-      const result1 = rateLimiter.contributions.check('user1', '192.168.1.1')
-      const result2 = rateLimiter.contributions.check('user1', '192.168.1.1')
-      const result3 = rateLimiter.contributions.check('user1', '192.168.1.1')
+  describe('contribution rate limiter', () => {
+    it('should allow requests within limit', async () => {
+      const req = createMockRequest('192.168.10.1')
+      
+      const result1 = await contributionLimiter.isAllowed(req)
+      const result2 = await contributionLimiter.isAllowed(req)
+      const result3 = await contributionLimiter.isAllowed(req)
 
-      expect(result1.success).toBe(true)
-      expect(result2.success).toBe(true)
-      expect(result3.success).toBe(true)
+      expect(result1.allowed).toBe(true)
+      expect(result2.allowed).toBe(true)
+      expect(result3.allowed).toBe(true)
     })
 
-    it('should block requests exceeding limit', () => {
-      const userId = 'user1'
-      const ip = '192.168.1.1'
+    it('should block requests exceeding limit', async () => {
+      const req = createMockRequest('192.168.10.2')
 
-      // Make 10 requests (the limit)
-      for (let i = 0; i < 10; i++) {
-        const result = rateLimiter.contributions.check(userId, ip)
-        expect(result.success).toBe(true)
+      // Make 20 requests (the limit)
+      for (let i = 0; i < 20; i++) {
+        const result = await contributionLimiter.isAllowed(req)
+        expect(result.allowed).toBe(true)
       }
 
-      // 11th request should be blocked
-      const blockedResult = rateLimiter.contributions.check(userId, ip)
-      expect(blockedResult.success).toBe(false)
-      expect(blockedResult.retryAfter).toBeDefined()
+      // 21st request should be blocked
+      const blockedResult = await contributionLimiter.isAllowed(req)
+      expect(blockedResult.allowed).toBe(false)
+      expect(blockedResult.remaining).toBe(0)
     })
 
-    it('should reset after time window', () => {
-      const userId = 'user1'
-      const ip = '192.168.1.1'
+    it('should reset after time window', async () => {
+      const req = createMockRequest('192.168.10.3')
 
       // Exhaust the limit
-      for (let i = 0; i < 10; i++) {
-        rateLimiter.contributions.check(userId, ip)
+      for (let i = 0; i < 20; i++) {
+        await contributionLimiter.isAllowed(req)
       }
 
       // Should be blocked
-      const blockedResult = rateLimiter.contributions.check(userId, ip)
-      expect(blockedResult.success).toBe(false)
+      const blockedResult = await contributionLimiter.isAllowed(req)
+      expect(blockedResult.allowed).toBe(false)
 
       // Advance time by 1 hour (past the window)
       jest.advanceTimersByTime(60 * 60 * 1000 + 1000)
 
       // Should now be allowed again
-      const allowedResult = rateLimiter.contributions.check(userId, ip)
-      expect(allowedResult.success).toBe(true)
+      const allowedResult = await contributionLimiter.isAllowed(req)
+      expect(allowedResult.allowed).toBe(true)
     })
 
-    it('should handle different users separately', () => {
-      const ip = '192.168.1.1'
-
-      // Exhaust limit for user1
-      for (let i = 0; i < 10; i++) {
-        rateLimiter.contributions.check('user1', ip)
-      }
-
-      // user1 should be blocked
-      const user1Result = rateLimiter.contributions.check('user1', ip)
-      expect(user1Result.success).toBe(false)
-
-      // user2 should still be allowed
-      const user2Result = rateLimiter.contributions.check('user2', ip)
-      expect(user2Result.success).toBe(true)
-    })
-
-    it('should handle different IPs separately', () => {
-      const userId = 'user1'
+    it('should handle different IPs separately', async () => {
+      const req1 = createMockRequest('192.168.10.4')
+      const req2 = createMockRequest('192.168.10.5')
 
       // Exhaust limit for first IP
-      for (let i = 0; i < 10; i++) {
-        rateLimiter.contributions.check(userId, '192.168.1.1')
+      for (let i = 0; i < 20; i++) {
+        await contributionLimiter.isAllowed(req1)
       }
 
       // First IP should be blocked
-      const ip1Result = rateLimiter.contributions.check(userId, '192.168.1.1')
-      expect(ip1Result.success).toBe(false)
+      const ip1Result = await contributionLimiter.isAllowed(req1)
+      expect(ip1Result.allowed).toBe(false)
 
       // Second IP should still be allowed
-      const ip2Result = rateLimiter.contributions.check(userId, '192.168.1.2')
-      expect(ip2Result.success).toBe(true)
-    })
-
-    it('should clean up old entries', () => {
-      const userId = 'user1'
-      const ip = '192.168.1.1'
-
-      // Make some requests
-      rateLimiter.contributions.check(userId, ip)
-
-      // Advance time past cleanup threshold
-      jest.advanceTimersByTime(2 * 60 * 60 * 1000) // 2 hours
-
-      // Make another request, which should trigger cleanup
-      const result = rateLimiter.contributions.check(userId, ip)
-      expect(result.success).toBe(true)
+      const ip2Result = await contributionLimiter.isAllowed(req2)
+      expect(ip2Result.allowed).toBe(true)
     })
   })
 
   describe('auth rate limiter', () => {
-    it('should allow auth requests within limit', () => {
-      const result1 = rateLimiter.auth.check('192.168.1.1')
-      const result2 = rateLimiter.auth.check('192.168.1.1')
-      const result3 = rateLimiter.auth.check('192.168.1.1')
+    it('should allow auth requests within limit', async () => {
+      const req = createMockRequest('192.168.20.1')
+      
+      const result1 = await authLimiter.isAllowed(req)
+      const result2 = await authLimiter.isAllowed(req)
+      const result3 = await authLimiter.isAllowed(req)
 
-      expect(result1.success).toBe(true)
-      expect(result2.success).toBe(true)
-      expect(result3.success).toBe(true)
+      expect(result1.allowed).toBe(true)
+      expect(result2.allowed).toBe(true)
+      expect(result3.allowed).toBe(true)
     })
 
-    it('should block auth requests exceeding limit', () => {
-      const ip = '192.168.1.1'
+    it('should block auth requests exceeding limit', async () => {
+      const req = createMockRequest('192.168.20.2')
 
       // Make 5 requests (the limit)
       for (let i = 0; i < 5; i++) {
-        const result = rateLimiter.auth.check(ip)
-        expect(result.success).toBe(true)
+        const result = await authLimiter.isAllowed(req)
+        expect(result.allowed).toBe(true)
       }
 
       // 6th request should be blocked
-      const blockedResult = rateLimiter.auth.check(ip)
-      expect(blockedResult.success).toBe(false)
-      expect(blockedResult.retryAfter).toBeDefined()
+      const blockedResult = await authLimiter.isAllowed(req)
+      expect(blockedResult.allowed).toBe(false)
+      expect(blockedResult.remaining).toBe(0)
     })
 
-    it('should reset auth limits after time window', () => {
-      const ip = '192.168.1.1'
+    it('should reset auth limits after time window', async () => {
+      const req = createMockRequest('192.168.20.3')
 
       // Exhaust the limit
       for (let i = 0; i < 5; i++) {
-        rateLimiter.auth.check(ip)
+        await authLimiter.isAllowed(req)
       }
 
       // Should be blocked
-      const blockedResult = rateLimiter.auth.check(ip)
-      expect(blockedResult.success).toBe(false)
+      const blockedResult = await authLimiter.isAllowed(req)
+      expect(blockedResult.allowed).toBe(false)
 
       // Advance time by 15 minutes (past the window)
       jest.advanceTimersByTime(15 * 60 * 1000 + 1000)
 
       // Should now be allowed again
-      const allowedResult = rateLimiter.auth.check(ip)
-      expect(allowedResult.success).toBe(true)
+      const allowedResult = await authLimiter.isAllowed(req)
+      expect(allowedResult.allowed).toBe(true)
+    })
+  })
+
+  describe('withRateLimit helper', () => {
+    it('should return null for allowed requests', async () => {
+      const req = createMockRequest('192.168.30.1')
+      const response = await withRateLimit(req, authLimiter)
+      expect(response).toBeNull()
+    })
+
+    it('should return 429 response for blocked requests', async () => {
+      const req = createMockRequest('192.168.30.2')
+      
+      // Exhaust the limit
+      for (let i = 0; i < 5; i++) {
+        await authLimiter.isAllowed(req)
+      }
+
+      const response = await withRateLimit(req, authLimiter)
+      expect(response).not.toBeNull()
+      expect(response?.status).toBe(429)
     })
   })
 })

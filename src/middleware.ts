@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyToken } from '@/lib/auth'
+import { verifyTokenEdge } from '@/lib/auth-edge'
 import { withRateLimit, generalLimiter, authLimiter, uploadLimiter, contributionLimiter } from '@/lib/rate-limiter'
 import { detectBotBehavior } from '@/lib/captcha'
 
@@ -56,7 +56,8 @@ export async function middleware(request: NextRequest) {
       return redirectResponse
     }
 
-    const user = verifyToken(token)
+    const user = await verifyTokenEdge(token)
+    
     if (!user || user.role !== 'admin') {
       // Redirect unauthorized users
       const url = request.nextUrl.clone()
@@ -70,10 +71,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect API routes that require authentication (POST, PUT, DELETE only)
+  // Protect API routes that require authentication
+  // Include admin API routes for all methods, others for POST, PUT, DELETE only
   if (pathname.startsWith('/api/') && 
       !pathname.startsWith('/api/auth/') &&
-      request.method !== 'GET') {
+      (pathname.startsWith('/api/admin/') || request.method !== 'GET')) {
     
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.startsWith('Bearer ')) {
@@ -88,11 +90,24 @@ export async function middleware(request: NextRequest) {
     }
 
     const token = authHeader.substring(7)
-    const user = verifyToken(token)
+    const user = await verifyTokenEdge(token)
+    
     if (!user) {
       const errorResponse = NextResponse.json(
         { error: 'Invalid or expired token' },
         { status: 401 }
+      )
+      // Apply security headers
+      errorResponse.headers.set('X-Content-Type-Options', 'nosniff')
+      errorResponse.headers.set('X-Frame-Options', 'DENY')
+      return errorResponse
+    }
+
+    // Additional check for admin API routes
+    if (pathname.startsWith('/api/admin/') && user.role !== 'admin') {
+      const errorResponse = NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
       )
       // Apply security headers
       errorResponse.headers.set('X-Content-Type-Options', 'nosniff')
@@ -134,6 +149,12 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     '/admin/:path*',
-    '/api/((?!auth).)*'
+    '/api/admin/segments/:path*',
+    '/api/segments',
+    '/api/segments/:path*',
+    '/api/photos',
+    '/api/photos/:path*',
+    '/api/contractors',
+    '/api/contractors/:path*'
   ]
 }

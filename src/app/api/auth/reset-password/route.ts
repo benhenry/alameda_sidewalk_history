@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { userQueries, passwordResetQueries } from '@/lib/database'
+import { getPasswordResetToken, updateUserPassword, markPasswordResetTokenAsUsed } from '@/lib/database'
 import bcrypt from 'bcryptjs'
 
 export async function POST(request: Request) {
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     // Find valid reset token
-    const resetToken = passwordResetQueries.getByToken.get(token)
+    const resetToken = await getPasswordResetToken(token)
     if (!resetToken) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },
@@ -34,13 +34,10 @@ export async function POST(request: Request) {
     const passwordHash = await bcrypt.hash(password, saltRounds)
 
     // Update user password
-    userQueries.updatePassword.run(passwordHash, resetToken.user_id)
+    await updateUserPassword(resetToken.user_id, passwordHash)
 
     // Mark token as used
-    passwordResetQueries.markAsUsed.run(token)
-
-    // Clean up any other reset tokens for this user
-    passwordResetQueries.deleteByUserId.run(resetToken.user_id)
+    await markPasswordResetTokenAsUsed(token)
 
     return NextResponse.json({
       message: 'Password has been successfully reset. You can now log in with your new password.'
@@ -68,7 +65,7 @@ export async function GET(request: Request) {
     }
 
     // Verify token validity without using it
-    const resetToken = passwordResetQueries.getByToken.get(token)
+    const resetToken = await getPasswordResetToken(token)
     if (!resetToken) {
       return NextResponse.json(
         { error: 'Invalid or expired reset token' },

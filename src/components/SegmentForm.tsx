@@ -3,7 +3,9 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { SidewalkSegment } from '@/types/sidewalk'
-import { Save, X, MapPin, Plus, Minus } from 'lucide-react'
+import { Save, X, MapPin, Plus, Minus, AlertCircle } from 'lucide-react'
+import { useSidewalkData } from '@/lib/sidewalk-context'
+import { normalizeStreetName, normalizeBlockNumber, validateStreetName, validateBlockNumber } from '@/lib/street-validation'
 
 // Dynamically import to avoid SSR issues with Leaflet
 const InteractiveSegmentDrawer = dynamic(() => import('./InteractiveSegmentDrawer'), {
@@ -33,26 +35,32 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
   })
 
   const [newSpecialMark, setNewSpecialMark] = useState('')
-  const [sidewalkData, setSidewalkData] = useState<[number, number][]>([])
-  const [loadingSidewalks, setLoadingSidewalks] = useState(true)
+  const { sidewalkData, isLoading: loadingSidewalks } = useSidewalkData()
+  const [streetValidation, setStreetValidation] = useState<{ isValid: boolean; suggestion?: string; message?: string; isWarning?: boolean }>({ isValid: true })
+  const [blockValidation, setBlockValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: true })
 
-  // Fetch sidewalk data for overlay
-  useEffect(() => {
-    async function fetchSidewalks() {
-      try {
-        const response = await fetch('/api/sidewalks')
-        if (response.ok) {
-          const data = await response.json()
-          setSidewalkData(data.coordinates || [])
-        }
-      } catch (error) {
-        console.error('Failed to fetch sidewalk data:', error)
-      } finally {
-        setLoadingSidewalks(false)
-      }
-    }
-    fetchSidewalks()
-  }, [])
+  const handleStreetChange = (street: string) => {
+    // Update the street value without normalization during typing
+    setFormData(prev => ({ ...prev, street }))
+  }
+
+  const handleStreetBlur = () => {
+    // Normalize and validate only when field loses focus
+    const normalized = normalizeStreetName(formData.street)
+    setFormData(prev => ({ ...prev, street: normalized }))
+    
+    const validation = validateStreetName(normalized)
+    setStreetValidation(validation)
+  }
+
+  const handleBlockChange = (block: string) => {
+    const normalized = normalizeBlockNumber(block)
+    setFormData(prev => ({ ...prev, block: normalized }))
+    
+    // Validate block number
+    const validation = validateBlockNumber(normalized)
+    setBlockValidation(validation)
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,8 +70,22 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
       return
     }
 
+    // Normalize street name before validation and submission
+    const normalizedStreet = normalizeStreetName(formData.street)
+    setFormData(prev => ({ ...prev, street: normalizedStreet }))
+
+    // Re-validate before submitting
+    const streetValidationResult = validateStreetName(normalizedStreet)
+    const blockValidationResult = validateBlockNumber(formData.block)
+    
+    if (!streetValidationResult.isValid || !blockValidationResult.isValid) {
+      alert('Please fix the validation errors before submitting.')
+      return
+    }
+
     onSave({
       ...formData,
+      street: normalizedStreet,
       coordinates: formData.coordinates.filter(coord => coord[0] !== 0 && coord[1] !== 0)
     })
   }
@@ -87,7 +109,7 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1200]">
       <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">
@@ -140,10 +162,37 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               <input
                 type="text"
                 value={formData.street}
-                onChange={(e) => setFormData(prev => ({ ...prev, street: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handleStreetChange(e.target.value)}
+                onBlur={handleStreetBlur}
+                className={`w-full p-2 border rounded-md focus:ring-2 ${
+                  streetValidation.isValid 
+                    ? streetValidation.isWarning
+                      ? 'border-yellow-300 focus:ring-yellow-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                    : 'border-red-300 focus:ring-red-500'
+                }`}
+                placeholder="e.g., Park Street, Marina Village Pkwy"
                 required
               />
+              {(!streetValidation.isValid || streetValidation.isWarning) && streetValidation.message && (
+                <div className={`mt-1 flex items-center gap-1 text-sm ${
+                  streetValidation.isValid && streetValidation.isWarning
+                    ? 'text-yellow-600'
+                    : 'text-red-600'
+                }`}>
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{streetValidation.message}</span>
+                </div>
+              )}
+              {streetValidation.suggestion && (
+                <button
+                  type="button"
+                  onClick={() => handleStreetChange(streetValidation.suggestion!)}
+                  className="mt-1 text-sm text-blue-600 hover:text-blue-800"
+                >
+                  Use: {streetValidation.suggestion}
+                </button>
+              )}
             </div>
 
             <div>
@@ -153,10 +202,21 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               <input
                 type="text"
                 value={formData.block}
-                onChange={(e) => setFormData(prev => ({ ...prev, block: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => handleBlockChange(e.target.value)}
+                className={`w-full p-2 border rounded-md focus:ring-2 ${
+                  blockValidation.isValid 
+                    ? 'border-gray-300 focus:ring-blue-500' 
+                    : 'border-red-300 focus:ring-red-500'
+                }`}
+                placeholder="e.g., 1400 or 1400-1499"
                 required
               />
+              {!blockValidation.isValid && (
+                <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
+                  <AlertCircle className="h-4 w-4" />
+                  <span>{blockValidation.message}</span>
+                </div>
+              )}
             </div>
           </div>
 

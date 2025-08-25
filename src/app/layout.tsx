@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { AuthProvider } from '@/lib/auth-context'
+import { SidewalkProvider } from '@/lib/sidewalk-context'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -22,7 +23,9 @@ export default function RootLayout({
           crossOrigin=""
         />
         <AuthProvider>
-          {children}
+          <SidewalkProvider>
+            {children}
+          </SidewalkProvider>
         </AuthProvider>
       </body>
     </html>

@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, Clock, User, MapPin, Calendar, AlertTriangle } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, User, MapPin, Calendar, AlertTriangle, Eye } from 'lucide-react'
 import { SidewalkSegment } from '@/types/sidewalk'
+import { authenticatedFetch, handleApiError } from '@/lib/api'
 
 interface AdminSegment extends SidewalkSegment {
   status: 'pending' | 'approved' | 'rejected'
@@ -11,7 +12,11 @@ interface AdminSegment extends SidewalkSegment {
   approvedAt?: Date
 }
 
-export default function AdminSegmentApproval() {
+interface AdminSegmentApprovalProps {
+  onPreviewSegment?: (segment: AdminSegment) => void
+}
+
+export default function AdminSegmentApproval({ onPreviewSegment }: AdminSegmentApprovalProps) {
   const [pendingSegments, setPendingSegments] = useState<AdminSegment[]>([])
   const [allSegments, setAllSegments] = useState<AdminSegment[]>([])
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
@@ -25,12 +30,18 @@ export default function AdminSegmentApproval() {
   const loadSegments = async () => {
     try {
       const [pendingRes, allRes] = await Promise.all([
-        fetch('/api/admin/segments?status=pending'),
-        fetch('/api/admin/segments')
+        authenticatedFetch('/api/admin/segments?status=pending'),
+        authenticatedFetch('/api/admin/segments')
       ])
 
-      if (!pendingRes.ok || !allRes.ok) {
-        throw new Error('Failed to fetch segments')
+      if (!pendingRes.ok) {
+        handleApiError(pendingRes)
+        throw new Error('Failed to fetch pending segments')
+      }
+      
+      if (!allRes.ok) {
+        handleApiError(allRes)
+        throw new Error('Failed to fetch all segments')
       }
 
       const pending = await pendingRes.json()
@@ -52,13 +63,13 @@ export default function AdminSegmentApproval() {
     setProcessingSegments(prev => new Set(prev).add(segmentId))
 
     try {
-      const response = await fetch('/api/admin/segments', {
+      const response = await authenticatedFetch('/api/admin/segments', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ segmentId, action })
       })
 
       if (!response.ok) {
+        handleApiError(response)
         throw new Error(`Failed to ${action} segment`)
       }
 
@@ -211,26 +222,38 @@ export default function AdminSegmentApproval() {
                   {segment.coordinates.length} coordinate points • Created {new Date(segment.createdAt).toLocaleDateString()}
                 </div>
 
-                {segment.status === 'pending' && (
-                  <div className="flex gap-2">
+                <div className="flex gap-2">
+                  {onPreviewSegment && (
                     <button
-                      onClick={() => handleApproveReject(segment.id, 'approve')}
-                      disabled={processingSegments.has(segment.id)}
-                      className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      onClick={() => onPreviewSegment(segment)}
+                      className="flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 text-sm"
                     >
-                      <CheckCircle className="h-4 w-4" />
-                      {processingSegments.has(segment.id) ? 'Processing...' : 'Approve'}
+                      <Eye className="h-4 w-4" />
+                      Preview on Map
                     </button>
-                    <button
-                      onClick={() => handleApproveReject(segment.id, 'reject')}
-                      disabled={processingSegments.has(segment.id)}
-                      className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      {processingSegments.has(segment.id) ? 'Processing...' : 'Reject'}
-                    </button>
-                  </div>
-                )}
+                  )}
+                  
+                  {segment.status === 'pending' && (
+                    <>
+                      <button
+                        onClick={() => handleApproveReject(segment.id, 'approve')}
+                        disabled={processingSegments.has(segment.id)}
+                        className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        <CheckCircle className="h-4 w-4" />
+                        {processingSegments.has(segment.id) ? 'Processing...' : 'Approve'}
+                      </button>
+                      <button
+                        onClick={() => handleApproveReject(segment.id, 'reject')}
+                        disabled={processingSegments.has(segment.id)}
+                        className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        {processingSegments.has(segment.id) ? 'Processing...' : 'Reject'}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </div>

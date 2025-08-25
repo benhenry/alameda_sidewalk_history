@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { segmentQueries, parseCoordinates, stringifyCoordinates, parseSpecialMarks, stringifySpecialMarks } from '@/lib/database'
+import { getSegmentById, updateSegment, deleteSegment } from '@/lib/database'
 import { SidewalkSegment } from '@/types/sidewalk'
 
 export async function GET(
@@ -7,33 +7,13 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const segment = segmentQueries.getById.get(params.id)
+    const segment = await getSegmentById(params.id)
     
     if (!segment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 
-    const formattedSegment: SidewalkSegment = {
-      id: segment.id,
-      coordinates: parseCoordinates(segment.coordinates),
-      contractor: segment.contractor,
-      year: segment.year,
-      street: segment.street,
-      block: segment.block,
-      notes: segment.notes,
-      specialMarks: parseSpecialMarks(segment.special_marks),
-      photos: segment.photo_ids ? segment.photo_ids.split(',').map((id: string, index: number) => ({
-        id,
-        sidewalkSegmentId: segment.id,
-        filename: segment.photo_filenames.split(',')[index],
-        type: segment.photo_types.split(',')[index],
-        uploadedAt: new Date()
-      })) : [],
-      createdAt: new Date(segment.created_at),
-      updatedAt: new Date(segment.updated_at)
-    }
-
-    return NextResponse.json(formattedSegment)
+    return NextResponse.json(segment)
   } catch (error) {
     console.error('Error fetching segment:', error)
     return NextResponse.json({ error: 'Failed to fetch segment' }, { status: 500 })
@@ -52,43 +32,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
-    const changes = segmentQueries.update.run(
-      stringifyCoordinates(coordinates),
+    const updatedSegment = await updateSegment(params.id, {
+      coordinates,
       contractor,
       year,
       street,
       block,
-      notes || null,
-      specialMarks ? stringifySpecialMarks(specialMarks) : null,
-      params.id
-    )
+      notes,
+      specialMarks
+    })
 
-    if (changes.changes === 0) {
+    if (!updatedSegment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 
-    const updatedSegment = segmentQueries.getById.get(params.id)
-    const formattedSegment: SidewalkSegment = {
-      id: updatedSegment.id,
-      coordinates: parseCoordinates(updatedSegment.coordinates),
-      contractor: updatedSegment.contractor,
-      year: updatedSegment.year,
-      street: updatedSegment.street,
-      block: updatedSegment.block,
-      notes: updatedSegment.notes,
-      specialMarks: parseSpecialMarks(updatedSegment.special_marks),
-      photos: updatedSegment.photo_ids ? updatedSegment.photo_ids.split(',').map((id: string, index: number) => ({
-        id,
-        sidewalkSegmentId: updatedSegment.id,
-        filename: updatedSegment.photo_filenames.split(',')[index],
-        type: updatedSegment.photo_types.split(',')[index],
-        uploadedAt: new Date()
-      })) : [],
-      createdAt: new Date(updatedSegment.created_at),
-      updatedAt: new Date(updatedSegment.updated_at)
-    }
-
-    return NextResponse.json(formattedSegment)
+    return NextResponse.json(updatedSegment)
   } catch (error) {
     console.error('Error updating segment:', error)
     return NextResponse.json({ error: 'Failed to update segment' }, { status: 500 })
@@ -100,9 +58,9 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const changes = segmentQueries.delete.run(params.id)
+    const success = await deleteSegment(params.id)
     
-    if (changes.changes === 0) {
+    if (!success) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 

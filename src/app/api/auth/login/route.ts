@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { userQueries } from '@/lib/database'
+import { getUserByEmail, updateUserLastLogin } from '@/lib/database'
 import { verifyPassword, generateToken } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Find user
-    const user = userQueries.getByEmail.get(email.toLowerCase())
-    if (!user) {
+    const user = await getUserByEmail(email.toLowerCase())
+    if (!user || !user.password_hash) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update last login
-    userQueries.updateLastLogin.run(user.id)
+    await updateUserLastLogin(user.id)
 
     // Generate token
     const authUser = {

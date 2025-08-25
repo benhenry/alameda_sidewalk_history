@@ -5,6 +5,7 @@ export interface User {
   role: 'admin' | 'user';
   createdAt: Date;
   lastLoginAt?: Date;
+  password_hash?: string; // Only for internal use, not exposed in API responses
 }
 
 export interface AuthUser {

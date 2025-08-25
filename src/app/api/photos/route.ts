@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { photoQueries } from '@/lib/database'
+import { createPhoto, getPhotosBySegmentId } from '@/lib/database'
+import { uploadFile as storageUploadFile } from '@/lib/storage'
 import { v4 as uuidv4 } from 'uuid'
 import path from 'path'
+
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,40 +39,31 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    // Upload file using storage service (handles local vs cloud storage)
+    const uploadResult = await storageUploadFile(file, file.name, sidewalkSegmentId)
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
-    await mkdir(uploadsDir, { recursive: true })
-
-    // Generate unique filename
-    const fileExtension = file.name.split('.').pop()
-    const filename = `${uuidv4()}.${fileExtension}`
-    const filepath = path.join(uploadsDir, filename)
-
-    // Write file to disk
-    await writeFile(filepath, buffer)
+    // Get user ID from middleware-set header
+    const userId = request.headers.get('x-user-id')
 
     // Save to database
-    const photoId = uuidv4()
-    photoQueries.insert.run(
-      photoId,
+    const photo = await createPhoto({
       sidewalkSegmentId,
-      filename,
-      caption || null,
-      type,
-      coordinates || null
-    )
+      filename: uploadResult.filename,
+      originalName: file.name,
+      mimetype: file.type,
+      size: file.size,
+      storageUrl: uploadResult.url,
+      uploadedBy: userId || undefined
+    })
 
     return NextResponse.json({
-      id: photoId,
-      filename,
+      id: photo.id,
+      filename: uploadResult.filename,
       caption,
       type,
       sidewalkSegmentId,
       coordinates: coordinates ? JSON.parse(coordinates) : null,
-      url: `/uploads/${filename}`
+      url: uploadResult.url
     }, { status: 201 })
 
   } catch (error) {
@@ -94,20 +87,8 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const photos = photoQueries.getBySegmentId.all(sidewalkSegmentId)
-    
-    const formattedPhotos = photos.map(photo => ({
-      id: photo.id,
-      filename: photo.filename,
-      caption: photo.caption,
-      type: photo.type,
-      sidewalkSegmentId: photo.sidewalk_segment_id,
-      coordinates: photo.coordinates ? JSON.parse(photo.coordinates) : null,
-      uploadedAt: new Date(photo.uploaded_at),
-      url: `/uploads/${photo.filename}`
-    }))
-
-    return NextResponse.json(formattedPhotos)
+    const photos = await getPhotosBySegmentId(sidewalkSegmentId)
+    return NextResponse.json(photos)
   } catch (error) {
     console.error('Error fetching photos:', error)
     return NextResponse.json(

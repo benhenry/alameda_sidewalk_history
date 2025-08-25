@@ -7,6 +7,7 @@ import SegmentForm from '@/components/SegmentForm'
 import PhotoUpload from '@/components/PhotoUpload'
 import AdminSegmentApproval from '@/components/AdminSegmentApproval'
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
+import { authenticatedFetch } from '@/lib/api'
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -17,6 +18,7 @@ export default function AdminPage() {
   const [segments, setSegments] = useState<SidewalkSegment[]>([])
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [selectedSegment, setSelectedSegment] = useState<SidewalkSegment | undefined>()
+  const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | undefined>()
   const [showForm, setShowForm] = useState(false)
   const [editingSegment, setEditingSegment] = useState<SidewalkSegment | undefined>()
   const [loading, setLoading] = useState(true)
@@ -27,15 +29,23 @@ export default function AdminPage() {
 
   const loadData = async () => {
     try {
-      const [segmentsRes, contractorsRes] = await Promise.all([
+      const [segmentsRes, contractorsRes, adminSegmentsRes] = await Promise.all([
         fetch('/api/segments'),
-        fetch('/api/contractors')
+        fetch('/api/contractors'),
+        authenticatedFetch('/api/admin/segments')
       ])
       
       const segmentsData = await segmentsRes.json()
       const contractorsData = await contractorsRes.json()
+      const adminSegmentsData = adminSegmentsRes.ok ? await adminSegmentsRes.json() : []
       
-      setSegments(segmentsData)
+      // Combine approved segments with pending segments for map display
+      const allSegmentsForMap = [
+        ...segmentsData,
+        ...adminSegmentsData.filter((seg: any) => seg.status === 'pending')
+      ]
+      
+      setSegments(allSegmentsForMap)
       setContractors(contractorsData)
     } catch (error) {
       console.error('Error loading data:', error)
@@ -97,6 +107,13 @@ export default function AdminPage() {
     setShowForm(true)
   }
 
+  const handlePreviewSegment = (segment: SidewalkSegment) => {
+    setHighlightedSegmentId(segment.id)
+    setSelectedSegment(segment)
+    // Clear highlight after 5 seconds
+    setTimeout(() => setHighlightedSegmentId(undefined), 5000)
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
@@ -137,6 +154,7 @@ export default function AdminPage() {
                   segments={segments}
                   filters={{}}
                   onSegmentClick={setSelectedSegment}
+                  highlightedSegmentId={highlightedSegmentId}
                 />
               </div>
             </div>
@@ -211,7 +229,7 @@ export default function AdminPage() {
           {/* Statistics and Data Section */}
           <div className="space-y-6">
             {/* Segment Approval */}
-            <AdminSegmentApproval />
+            <AdminSegmentApproval onPreviewSegment={handlePreviewSegment} />
 
             {/* Statistics */}
             <div className="bg-white rounded-lg shadow-sm p-6">

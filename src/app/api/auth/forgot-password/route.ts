@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { userQueries, passwordResetQueries } from '@/lib/database'
+import { getUserByEmail, createPasswordResetToken } from '@/lib/database'
 import { randomBytes } from 'crypto'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     }
 
     // Check if user exists
-    const user = userQueries.getByEmail.get(email)
+    const user = await getUserByEmail(email)
     if (!user) {
       // Return success even if user doesn't exist to prevent email enumeration
       return NextResponse.json({
@@ -23,24 +23,15 @@ export async function POST(request: Request) {
       })
     }
 
-    // Clean up any existing reset tokens for this user
-    passwordResetQueries.deleteByUserId.run(user.id)
-
     // Generate reset token (URL-safe)
     const resetToken = randomBytes(32).toString('base64url')
-    const tokenId = uuidv4()
     
     // Token expires in 1 hour
     const expiresAt = new Date()
     expiresAt.setHours(expiresAt.getHours() + 1)
 
     // Save reset token to database
-    passwordResetQueries.create.run(
-      tokenId,
-      user.id,
-      resetToken,
-      expiresAt.toISOString()
-    )
+    await createPasswordResetToken(user.id, resetToken, expiresAt)
 
     // In a production app, you would send an email here
     // For this demo, we'll log the reset URL

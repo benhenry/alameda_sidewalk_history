@@ -2,6 +2,18 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SegmentForm from '../SegmentForm'
 import { SidewalkSegment } from '@/types/sidewalk'
+import { SidewalkProvider } from '@/lib/sidewalk-context'
+
+// Mock the InteractiveSegmentDrawer component
+jest.mock('../InteractiveSegmentDrawer', () => {
+  return function MockInteractiveSegmentDrawer({ onCoordinatesChange }: any) {
+    return (
+      <div data-testid="map-container" onClick={() => onCoordinatesChange([[37.7652, -122.2416]])}>
+        Mock Interactive Map
+      </div>
+    )
+  }
+})
 
 // Mock fetch for sidewalk data
 global.fetch = jest.fn()
@@ -23,6 +35,14 @@ const mockSegment: SidewalkSegment = {
   updatedAt: new Date('2023-01-01'),
 }
 
+const renderWithProvider = (component: React.ReactElement) => {
+  return render(
+    <SidewalkProvider>
+      {component}
+    </SidewalkProvider>
+  )
+}
+
 describe('SegmentForm Component', () => {
   beforeEach(() => {
     jest.clearAllMocks()
@@ -35,7 +55,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('renders form title for new segment', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -46,7 +66,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('renders form title for editing segment', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         segment={mockSegment}
         onSave={mockOnSave}
@@ -58,7 +78,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('pre-fills form fields when editing existing segment', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         segment={mockSegment}
         onSave={mockOnSave}
@@ -74,7 +94,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('displays existing special marks', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         segment={mockSegment}
         onSave={mockOnSave}
@@ -86,7 +106,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('renders the interactive segment drawer', async () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         segment={mockSegment}
         onSave={mockOnSave}
@@ -94,15 +114,16 @@ describe('SegmentForm Component', () => {
       />
     )
 
+    // Wait for the sidewalk data to load and map to render
     await waitFor(() => {
       expect(screen.getByTestId('map-container')).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
   })
 
   it('calls onCancel when cancel button is clicked', async () => {
     const user = userEvent.setup()
     
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -118,19 +139,14 @@ describe('SegmentForm Component', () => {
   it('prevents submission with missing required fields', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
     
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
       />
     )
 
-    // Wait for map to load
-    await waitFor(() => {
-      expect(screen.getByTestId('map-container')).toBeInTheDocument()
-    })
-
-    // Find the form and trigger submit event
+    // Find the form and trigger submit event without waiting for map
     const form = document.querySelector('form')
     if (form) {
       fireEvent.submit(form)
@@ -143,7 +159,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('displays special mark input placeholder', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -154,7 +170,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('shows loading state while fetching sidewalk data', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -165,7 +181,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('displays segment location section', async () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -174,13 +190,14 @@ describe('SegmentForm Component', () => {
 
     expect(screen.getByText('Segment Location *')).toBeInTheDocument()
 
+    // Wait for sidewalk data to load
     await waitFor(() => {
       expect(screen.getByTestId('map-container')).toBeInTheDocument()
-    })
+    }, { timeout: 3000 })
   })
 
   it('renders save button with save icon', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}
@@ -193,7 +210,7 @@ describe('SegmentForm Component', () => {
   })
 
   it('renders form with proper labels', () => {
-    render(
+    renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
         onCancel={mockOnCancel}

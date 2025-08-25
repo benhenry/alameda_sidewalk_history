@@ -1,0 +1,63 @@
+# Dependencies
+node_modules
+npm-debug.log*
+
+# Local env files
+.env*.local
+.env
+
+# Testing
+coverage
+.nyc_output
+
+# Vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE files
+.vscode
+.idea
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Git
+.git
+.gitignore
+
+# README and docs
+README.md
+CONTRIBUTING.md
+BUGS.md
+TODO.md
+SECURITY.md
+ERRORS.md
+DEPLOYMENT.md
+CHANGELOG.md
+README-DEPLOYMENT.md
+
+# Test files
+**/__tests__/**
+**/*.test.ts
+**/*.test.tsx
+jest.config.js
+jest.setup.js
+
+# Local data (will be replaced with cloud services)
+data/
+public/uploads/
+
+# Build artifacts that will be rebuilt
+.next/

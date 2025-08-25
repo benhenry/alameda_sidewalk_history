@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { fetchSidewalkData } from '@/lib/sidewalk-validation'
 
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
   try {
     const sidewalkCoordinates = await fetchSidewalkData()

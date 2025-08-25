@@ -55,7 +55,9 @@ out geom;`
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
-      body: `data=${encodeURIComponent(overpassQuery)}`
+      body: `data=${encodeURIComponent(overpassQuery)}`,
+      // Disable Next.js caching due to large response size
+      cache: 'no-store'
     })
 
     if (!response.ok) {

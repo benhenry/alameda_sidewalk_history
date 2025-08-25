@@ -20,7 +20,8 @@ class CaptchaManager {
 
   private cleanup() {
     const now = Date.now()
-    for (const [id, challenge] of this.challenges.entries()) {
+    const entries = Array.from(this.challenges.entries())
+    for (const [id, challenge] of entries) {
       if (now > challenge.expiresAt) {
         this.challenges.delete(id)
       }

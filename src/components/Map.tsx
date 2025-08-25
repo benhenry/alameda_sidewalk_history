@@ -20,12 +20,19 @@ interface MapProps {
   segments: SidewalkSegment[]
   filters: FilterOptions
   onSegmentClick: (segment: SidewalkSegment) => void
+  highlightedSegmentId?: string
 }
 
 // Alameda, CA coordinates
 const ALAMEDA_CENTER: [number, number] = [37.7652, -122.2416]
 
-const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions) => {
+const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions, highlightedSegmentId?: string) => {
+  // Highlighted segments get a bright red color for visibility
+  if (highlightedSegmentId && segment.id === highlightedSegmentId) return '#FF0000'
+  
+  // Pending segments get a special orange color
+  if (segment.status === 'pending') return '#FF8C00'
+  
   if (filters.contractor && segment.contractor !== filters.contractor) return '#cccccc'
   if (filters.year && segment.year !== filters.year) return '#cccccc'
   if (filters.decade && Math.floor(segment.year / 10) * 10 !== filters.decade) return '#cccccc'
@@ -61,7 +68,7 @@ function MapEvents({ onMapClick }: { onMapClick: (latlng: [number, number]) => v
   return null
 }
 
-export default function Map({ segments, filters, onSegmentClick }: MapProps) {
+export default function Map({ segments, filters, onSegmentClick, highlightedSegmentId }: MapProps) {
   const [isClient, setIsClient] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
 
@@ -91,23 +98,39 @@ export default function Map({ segments, filters, onSegmentClick }: MapProps) {
         <MapEvents onMapClick={handleMapClick} />
         
         {/* Mapped segments with actual data */}
-        {segments.map((segment) => (
-          <Polyline
-            key={segment.id}
-            positions={segment.coordinates}
-            color={getSegmentColor(segment, filters)}
-            weight={6}
-            opacity={0.9}
-            eventHandlers={{
-              click: () => onSegmentClick(segment)
-            }}
-          >
-            <Popup>
+        {segments.map((segment) => {
+          const isHighlighted = highlightedSegmentId === segment.id
+          const isPending = segment.status === 'pending'
+          
+          return (
+            <Polyline
+              key={segment.id}
+              positions={segment.coordinates}
+              color={getSegmentColor(segment, filters, highlightedSegmentId)}
+              weight={isHighlighted ? 12 : isPending ? 8 : 6}
+              opacity={isHighlighted ? 1.0 : isPending ? 0.8 : 0.9}
+              dashArray={isHighlighted ? '5, 5' : isPending ? '10, 5' : undefined}
+              eventHandlers={{
+                click: () => onSegmentClick(segment)
+              }}
+            >
+              <Popup>
               <div className="p-2">
                 <h3 className="font-bold">{segment.street}</h3>
                 <p><strong>Contractor:</strong> {segment.contractor}</p>
                 <p><strong>Year:</strong> {segment.year}</p>
                 <p><strong>Block:</strong> {segment.block}</p>
+                {segment.status && (
+                  <p><strong>Status:</strong> 
+                    <span className={`ml-1 px-2 py-1 rounded text-xs ${
+                      segment.status === 'pending' ? 'bg-orange-100 text-orange-800' :
+                      segment.status === 'approved' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {segment.status.charAt(0).toUpperCase() + segment.status.slice(1)}
+                    </span>
+                  </p>
+                )}
                 {segment.notes && <p><strong>Notes:</strong> {segment.notes}</p>}
                 {segment.specialMarks && segment.specialMarks.length > 0 && (
                   <p><strong>Special marks:</strong> {segment.specialMarks.join(', ')}</p>
@@ -118,7 +141,8 @@ export default function Map({ segments, filters, onSegmentClick }: MapProps) {
               </div>
             </Popup>
           </Polyline>
-        ))}
+          )
+        })}
       </MapContainer>
 
       {/* Map Legend */}
@@ -138,6 +162,14 @@ export default function Map({ segments, filters, onSegmentClick }: MapProps) {
             <div className="flex items-center gap-2">
               <div className="w-4 h-1 bg-red-600 border-dashed border border-red-600"></div>
               <span>Unmapped sidewalks</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-red-500" style={{height: '4px'}}></div>
+              <span>Highlighted segment</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-1 bg-orange-500 border-dashed border-2 border-orange-500" style={{height: '3px'}}></div>
+              <span>Pending approval</span>
             </div>
             
             <div className="border-t pt-2">

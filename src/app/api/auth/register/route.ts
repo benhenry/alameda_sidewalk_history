@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { userQueries } from '@/lib/database'
+import { getUserByEmail, getUserByUsername, createUser } from '@/lib/database'
 import { hashPassword, isValidEmail, isValidPassword, isValidUsername, generateToken } from '@/lib/auth'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUserByEmail = userQueries.getByEmail.get(email.toLowerCase())
+    const existingUserByEmail = await getUserByEmail(email.toLowerCase())
     if (existingUserByEmail) {
       return NextResponse.json(
         { error: 'User with this email already exists' },
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const existingUserByUsername = userQueries.getByUsername.get(username.toLowerCase())
+    const existingUserByUsername = await getUserByUsername(username.toLowerCase())
     if (existingUserByUsername) {
       return NextResponse.json(
         { error: 'Username is already taken' },
@@ -64,23 +64,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Create user
-    const userId = uuidv4()
     const hashedPassword = await hashPassword(password)
 
-    userQueries.create.run(
-      userId,
-      email.toLowerCase(),
-      username.toLowerCase(),
-      hashedPassword,
-      'user' // Default role
-    )
+    const newUser = await createUser({
+      email: email.toLowerCase(),
+      username: username.toLowerCase(),
+      passwordHash: hashedPassword,
+      role: 'user'
+    })
 
     // Generate token
     const user = {
-      id: userId,
-      email: email.toLowerCase(),
-      username: username.toLowerCase(),
-      role: 'user' as const
+      id: newUser.id,
+      email: newUser.email,
+      username: newUser.username,
+      role: newUser.role as 'user'
     }
 
     const token = generateToken(user)

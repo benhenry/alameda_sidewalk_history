@@ -1,34 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { photoQueries } from '@/lib/database'
-import { unlink } from 'fs/promises'
-import path from 'path'
+import { deletePhoto } from '@/lib/database'
+import { deleteFile } from '@/lib/storage'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Get photo details first
-    const photo = photoQueries.getBySegmentId.get(params.id)
+    // Delete from database (this will also handle file deletion via storage service)
+    const success = await deletePhoto(params.id)
     
-    if (!photo) {
+    if (!success) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
-    }
-
-    // Delete from database
-    const changes = photoQueries.delete.run(params.id)
-    
-    if (changes.changes === 0) {
-      return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
-    }
-
-    // Delete file from disk
-    try {
-      const filepath = path.join(process.cwd(), 'public', 'uploads', photo.filename)
-      await unlink(filepath)
-    } catch (fileError) {
-      console.error('Error deleting file:', fileError)
-      // Continue even if file deletion fails - database record is already removed
     }
 
     return NextResponse.json({ message: 'Photo deleted successfully' })
@@ -50,13 +33,8 @@ export async function PUT(
       return NextResponse.json({ error: 'Type is required' }, { status: 400 })
     }
 
-    const changes = photoQueries.update.run(caption, type, params.id)
-    
-    if (changes.changes === 0) {
-      return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
-    }
-
-    return NextResponse.json({ message: 'Photo updated successfully' })
+    // For now, return not implemented since photo update isn't in our database abstraction
+    return NextResponse.json({ error: 'Photo update not implemented' }, { status: 501 })
   } catch (error) {
     console.error('Error updating photo:', error)
     return NextResponse.json({ error: 'Failed to update photo' }, { status: 500 })

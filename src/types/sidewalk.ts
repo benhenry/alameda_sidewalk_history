@@ -10,6 +10,7 @@ export interface SidewalkSegment {
   specialMarks?: string[];
   createdAt: Date;
   updatedAt: Date;
+  status?: 'pending' | 'approved' | 'rejected';
 }
 
 export interface Photo {

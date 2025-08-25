@@ -71,14 +71,14 @@ export function validateField(field: string, value: any): ValidationResult {
 
   const errors: string[] = []
 
-  // Check required
-  if (rules.required && (value === null || value === undefined || value === '')) {
+  // Check required (only for rules that have a required property)
+  if ('required' in rules && rules.required && (value === null || value === undefined || value === '')) {
     errors.push(`${field} is required`)
     return { isValid: false, errors }
   }
 
   // Skip validation if field is optional and empty
-  if (!rules.required && (value === null || value === undefined || value === '')) {
+  if ('required' in rules && !rules.required && (value === null || value === undefined || value === '')) {
     return { isValid: true, errors: [], sanitizedValue: value }
   }
 
