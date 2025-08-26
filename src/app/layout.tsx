@@ -14,8 +14,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en-US">
+      <head>
+        <meta name="google" content="notranslate" />
+        <meta httpEquiv="Content-Language" content="en-US" />
+      </head>
+      <body className="notranslate">
         <link
           rel="stylesheet"
           href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
