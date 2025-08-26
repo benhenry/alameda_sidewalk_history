@@ -3,14 +3,14 @@
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { User } from '@/types/auth'
 
-const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql')
+const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql') || process.env.NODE_ENV === 'production'
 
 // Dynamic import helper
 async function getDbModule() {
   if (usePostgres) {
     return await import('./database-postgres')
   } else {
-    // Use SQLite for development and any environment without explicit PostgreSQL URL
+    // Use SQLite for development only
     return await import('./database-sqlite-async')
   }
 }
