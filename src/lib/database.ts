@@ -3,7 +3,7 @@
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { User } from '@/types/auth'
 
-const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql') || process.env.NODE_ENV === 'production'
+const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql') || process.env.PGHOST || process.env.NODE_ENV === 'production'
 
 // Dynamic import helper
 async function getDbModule() {

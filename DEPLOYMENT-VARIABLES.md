@@ -10,10 +10,10 @@ Secret ID: jwt-secret
 Secret Value: [64-character random string - generate with: openssl rand -hex 32]
 ```
 
-### 2. Database URL  
+### 2. Database Password
 ```
-Secret ID: database-url
-Secret Value: postgresql://username:password@/database_name?host=/cloudsql/project:region:instance
+Secret ID: postgres-password
+Secret Value: [Your PostgreSQL password]
 ```
 
 ### 3. Google Maps API Key
@@ -26,6 +26,7 @@ Secret Value: [Your Google Maps API Key]
 
 These are automatically set during deployment:
 
+**Application Settings:**
 - `NODE_ENV=production`
 - `ENABLE_REGISTRATION=true`
 - `ENABLE_FILE_UPLOADS=true`
@@ -39,6 +40,14 @@ These are automatically set during deployment:
 - `ENABLE_REQUEST_LOGGING=true`
 - `LOG_LEVEL=info`
 - `NEXT_PUBLIC_APP_URL=[Auto-generated based on project]`
+
+**Database Connection (automatically configured):**
+- `PGHOST=/cloudsql/PROJECT_ID:us-central1:sidewalk-db` *(Cloud SQL socket path)*
+- `PGDATABASE=sidewalks_db`
+- `PGUSER=postgres`
+- `PGPASSWORD=[From postgres-password secret]`
+
+> **Note:** The database assumes your Cloud SQL instance is named `sidewalk-db` in the `us-central1` region. If you use different names, update the `PGHOST` value in `cloudbuild.yaml`.
 
 ## 🚀 Deployment Process
 
