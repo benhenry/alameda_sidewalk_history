@@ -6,26 +6,32 @@ import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { User } from '@/types/auth'
 
 // Create a connection pool with fallback to individual env vars
-const pool = new Pool(
-  process.env.DATABASE_URL 
-    ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      }
-    : {
-        host: process.env.PGHOST || '/cloudsql/alameda-sidewalks:us-central1:sidewalk-db',
-        database: process.env.PGDATABASE || 'postgres',
-        user: process.env.PGUSER || 'postgres', 
-        password: process.env.PGPASSWORD,
-        ssl: false,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 2000,
-      }
-)
+const connectionConfig = process.env.DATABASE_URL 
+  ? {
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    }
+  : {
+      host: process.env.PGHOST,
+      database: process.env.PGDATABASE || 'sidewalks_db',
+      user: process.env.PGUSER || 'postgres', 
+      password: process.env.PGPASSWORD ? String(process.env.PGPASSWORD) : undefined,
+      ssl: false,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    }
+
+// Debug logging for connection config (without password)
+console.log('🔧 PostgreSQL connection config:', {
+  ...connectionConfig,
+  password: connectionConfig.password ? '[SET]' : '[MISSING]'
+})
+
+const pool = new Pool(connectionConfig)
 
 // Connection wrapper for better error handling
 async function withDatabase<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
