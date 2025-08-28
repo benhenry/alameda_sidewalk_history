@@ -22,6 +22,38 @@ Secret ID: google-maps-api-key
 Secret Value: [Your Google Maps API Key]
 ```
 
+### 4. Email Service (Choose One Option)
+
+#### Option A: SendGrid (Recommended - Easy Setup)
+```
+Secret ID: sendgrid-api-key
+Secret Value: [Your SendGrid API Key from https://app.sendgrid.com]
+```
+
+#### Option B: Gmail API (Free but Complex)
+```
+Secret ID: gmail-client-id
+Secret Value: [OAuth2 Client ID from Google Cloud Console]
+
+Secret ID: gmail-client-secret  
+Secret Value: [OAuth2 Client Secret]
+
+Secret ID: gmail-refresh-token
+Secret Value: [OAuth2 Refresh Token from OAuth Playground]
+```
+
+#### Option C: Generic SMTP
+```
+Secret ID: smtp-host
+Secret Value: [SMTP server hostname]
+
+Secret ID: smtp-user
+Secret Value: [SMTP username]
+
+Secret ID: smtp-password
+Secret Value: [SMTP password]
+```
+
 ## 🌍 Environment Variables (Included in cloudbuild.yaml)
 
 These are automatically set during deployment:

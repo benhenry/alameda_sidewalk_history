@@ -26,8 +26,8 @@ steps:
       '--memory', '1Gi',
       '--cpu', '1',
       '--max-instances', '10',
-      '--set-env-vars', 'NODE_ENV=production,ENABLE_REGISTRATION=true,ENABLE_FILE_UPLOADS=true,MAX_FILE_SIZE_MB=10,RATE_LIMIT_WINDOW_MS=900000,RATE_LIMIT_MAX_REQUESTS=100,AUTH_RATE_LIMIT_MAX=5,UPLOAD_RATE_LIMIT_MAX=10,ENABLE_SECURITY_HEADERS=true,ENABLE_CORS=false,ENABLE_REQUEST_LOGGING=true,LOG_LEVEL=info,NEXT_PUBLIC_APP_URL=${_APP_URL},PGHOST=/cloudsql/${PROJECT_ID}:us-central1:sidewalk-db,PGDATABASE=postgres,PGUSER=postgres',
-      '--set-secrets', 'JWT_SECRET=jwt-secret:latest,PGPASSWORD=postgres-password:latest,NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=google-maps-api-key:latest'
+      '--set-env-vars', 'NODE_ENV=production,ENABLE_REGISTRATION=true,ENABLE_FILE_UPLOADS=true,MAX_FILE_SIZE_MB=10,RATE_LIMIT_WINDOW_MS=900000,RATE_LIMIT_MAX_REQUESTS=100,AUTH_RATE_LIMIT_MAX=5,UPLOAD_RATE_LIMIT_MAX=10,ENABLE_SECURITY_HEADERS=true,ENABLE_CORS=false,ENABLE_REQUEST_LOGGING=true,LOG_LEVEL=info,NEXT_PUBLIC_APP_URL=${_APP_URL},PGHOST=/cloudsql/${PROJECT_ID}:us-central1:sidewalk-db,PGDATABASE=postgres,PGUSER=postgres,SENDGRID_FROM_EMAIL=noreply@alameda-sidewalks.com,GMAIL_FROM_EMAIL=your-email@gmail.com,SMTP_PORT=587,SMTP_SECURE=false',
+      '--set-secrets', 'JWT_SECRET=jwt-secret:latest,PGPASSWORD=postgres-password:latest,NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=google-maps-api-key:latest,SENDGRID_API_KEY=sendgrid-api-key:latest,GMAIL_CLIENT_ID=gmail-client-id:latest,GMAIL_CLIENT_SECRET=gmail-client-secret:latest,GMAIL_REFRESH_TOKEN=gmail-refresh-token:latest,SMTP_HOST=smtp-host:latest,SMTP_USER=smtp-user:latest,SMTP_PASSWORD=smtp-password:latest'
     ]
 
 # Store images in Container Registry

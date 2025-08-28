@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getUserByEmail, createPasswordResetToken } from '@/lib/database'
+import { sendPasswordResetEmail } from '@/lib/email'
 import { randomBytes } from 'crypto'
-import { v4 as uuidv4 } from 'uuid'
 
 export async function POST(request: Request) {
   try {
@@ -33,13 +33,21 @@ export async function POST(request: Request) {
     // Save reset token to database
     await createPasswordResetToken(user.id, resetToken, expiresAt)
 
-    // In a production app, you would send an email here
-    // For this demo, we'll log the reset URL
-    const resetUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
-    console.log(`Password reset URL for ${email}: ${resetUrl}`)
-
-    // TODO: Send email with reset link
-    // await sendPasswordResetEmail(email, resetUrl)
+    // Generate reset URL
+    const resetUrl = `${process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+    
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(email, resetUrl)
+      console.log(`✅ Password reset email sent to ${email}`)
+    } catch (emailError) {
+      console.error(`❌ Failed to send password reset email to ${email}:`, emailError)
+      // Log the URL as fallback for development/debugging
+      console.log(`Password reset URL for ${email}: ${resetUrl}`)
+      
+      // In production, you might want to return an error here
+      // For now, we'll continue to prevent user enumeration
+    }
 
     return NextResponse.json({
       message: 'If an account with this email exists, a password reset link has been sent.'

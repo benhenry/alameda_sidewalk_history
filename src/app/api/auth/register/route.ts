@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getUserByEmail, getUserByUsername, createUser } from '@/lib/database'
 import { hashPassword, isValidEmail, isValidPassword, isValidUsername, generateToken } from '@/lib/auth'
-import { v4 as uuidv4 } from 'uuid'
+import { sendWelcomeEmail } from '@/lib/email'
 
 export async function POST(request: NextRequest) {
   try {
@@ -82,6 +82,15 @@ export async function POST(request: NextRequest) {
     }
 
     const token = generateToken(user)
+
+    // Send welcome email (non-blocking)
+    try {
+      await sendWelcomeEmail(email, username)
+      console.log(`✅ Welcome email sent to ${email}`)
+    } catch (emailError) {
+      console.error(`❌ Failed to send welcome email to ${email}:`, emailError)
+      // Don't fail registration if email fails
+    }
 
     return NextResponse.json({
       user,
