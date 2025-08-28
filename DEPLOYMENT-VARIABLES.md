@@ -43,7 +43,7 @@ These are automatically set during deployment:
 
 **Database Connection (automatically configured):**
 - `PGHOST=/cloudsql/PROJECT_ID:us-central1:sidewalk-db` *(Cloud SQL socket path)*
-- `PGDATABASE=sidewalks_db`
+- `PGDATABASE=postgres`
 - `PGUSER=postgres`
 - `PGPASSWORD=[From postgres-password secret]`
 

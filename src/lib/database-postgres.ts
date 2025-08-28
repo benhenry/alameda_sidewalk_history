@@ -16,7 +16,7 @@ const connectionConfig = process.env.DATABASE_URL
     }
   : {
       host: process.env.PGHOST,
-      database: process.env.PGDATABASE || 'sidewalks_db',
+      database: process.env.PGDATABASE || 'postgres',
       user: process.env.PGUSER || 'postgres', 
       password: process.env.PGPASSWORD ? String(process.env.PGPASSWORD) : undefined,
       ssl: false,
