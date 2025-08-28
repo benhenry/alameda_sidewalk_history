@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom'
 
+// Ensure tests use SQLite (not PostgreSQL)
+process.env.NODE_ENV = 'test'
+delete process.env.DATABASE_URL // Force SQLite usage
+
 // Mock Leaflet
 global.L = {
   Icon: {
@@ -50,7 +54,11 @@ Object.defineProperty(global, 'crypto', {
 // Mock Next.js Request/Response for API routes
 global.Request = class MockRequest {
   constructor(url, options = {}) {
-    this.url = url
+    Object.defineProperty(this, 'url', {
+      value: url,
+      writable: false,
+      configurable: true
+    })
     this.method = options.method || 'GET'
     this.headers = new Map(Object.entries(options.headers || {}))
     this._body = options.body

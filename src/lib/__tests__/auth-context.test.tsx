@@ -1,8 +1,16 @@
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { AuthProvider, useAuth } from '../auth-context'
+import Cookies from 'js-cookie'
 
 // Mock fetch
 global.fetch = jest.fn()
+
+// Mock js-cookie
+jest.mock('js-cookie', () => ({
+  get: jest.fn(),
+  set: jest.fn(),
+  remove: jest.fn(),
+}))
 
 // Test component that uses auth context
 function TestComponent() {
@@ -22,21 +30,28 @@ function TestComponent() {
   )
 }
 
+const mockCookies = Cookies as jest.Mocked<typeof Cookies>
+
 describe('AuthContext', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    localStorage.clear()
+    mockCookies.get.mockReturnValue(undefined)
   })
 
-  it('should provide initial loading state', () => {
+  it('should provide initial loading state and then complete auth check', async () => {
     render(
       <AuthProvider>
         <TestComponent />
       </AuthProvider>
     )
 
-    expect(screen.getByTestId('loading')).toHaveTextContent('true')
+    // User should initially be null
     expect(screen.getByTestId('user')).toHaveTextContent('null')
+
+    // Wait for loading to become false after auth check (no token case)
+    await waitFor(() => {
+      expect(screen.getByTestId('loading')).toHaveTextContent('false')
+    })
   })
 
   it('should handle successful login', async () => {
@@ -72,7 +87,7 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user')).toHaveTextContent('test@example.com')
     })
 
-    expect(localStorage.getItem('token')).toBe('test-token')
+    expect(mockCookies.set).toHaveBeenCalledWith('auth-token', 'test-token', { expires: 7 })
   })
 
   it('should handle login failure', async () => {
@@ -101,12 +116,12 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('user')).toHaveTextContent('null')
     })
 
-    expect(localStorage.getItem('token')).toBeNull()
+    // Login failure test - no cookie should be set
   })
 
   it('should handle logout', async () => {
     // Set up initial logged-in state
-    localStorage.setItem('token', 'test-token')
+    mockCookies.get.mockReturnValue('test-token')
     
     const mockUser = {
       id: '1',
@@ -139,11 +154,11 @@ describe('AuthContext', () => {
     })
 
     expect(screen.getByTestId('user')).toHaveTextContent('null')
-    expect(localStorage.getItem('token')).toBeNull()
+    expect(mockCookies.remove).toHaveBeenCalledWith('auth-token')
   })
 
   it('should handle token validation on mount', async () => {
-    localStorage.setItem('token', 'test-token')
+    mockCookies.get.mockReturnValue('test-token')
     
     const mockUser = {
       id: '1',
@@ -153,7 +168,7 @@ describe('AuthContext', () => {
 
     const mockResponse = {
       ok: true,
-      json: jest.fn().mockResolvedValue({ user: mockUser })
+      json: jest.fn().mockResolvedValue(mockUser)
     }
 
     ;(fetch as jest.Mock).mockResolvedValueOnce(mockResponse)
@@ -171,7 +186,7 @@ describe('AuthContext', () => {
   })
 
   it('should handle invalid token on mount', async () => {
-    localStorage.setItem('token', 'invalid-token')
+    mockCookies.get.mockReturnValue('invalid-token')
     
     const mockResponse = {
       ok: false,
@@ -191,6 +206,6 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('loading')).toHaveTextContent('false')
     })
 
-    expect(localStorage.getItem('token')).toBeNull()
+    expect(mockCookies.remove).toHaveBeenCalledWith('auth-token')
   })
 })

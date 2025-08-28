@@ -69,7 +69,6 @@ export async function createSegment(segmentData: {
   const id = uuidv4()
   const coordinates = sqliteDb.stringifyCoordinates(segmentData.coordinates)
   const specialMarks = sqliteDb.stringifySpecialMarks(segmentData.specialMarks || [])
-  const status = segmentData.status || 'approved'
   
   sqliteDb.segmentQueries.insert.run(
     id,
@@ -80,8 +79,7 @@ export async function createSegment(segmentData: {
     segmentData.block,
     segmentData.notes,
     specialMarks,
-    segmentData.createdBy,
-    status
+    segmentData.createdBy
   )
   
   const segment = await getSegmentById(id)

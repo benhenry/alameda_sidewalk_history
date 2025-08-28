@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Google Places API</title>
+</head>
+<body>
+    <h1>Google Places API Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        function initMap() {
+            console.log('Google Maps loaded');
+            console.log('Places service available:', !!google.maps.places.AutocompleteService);
+            
+            if (!google.maps.places.AutocompleteService) {
+                document.getElementById('results').innerHTML = 'ERROR: AutocompleteService not available';
+                return;
+            }
+            
+            const service = new google.maps.places.AutocompleteService();
+            
+            const request = {
+                input: 'Park Street',
+                componentRestrictions: { country: 'us' },
+                location: new google.maps.LatLng(37.7652, -122.2416),
+                radius: 15000,
+                types: ['route']
+            };
+            
+            console.log('Making test request:', request);
+            
+            service.getPlacePredictions(request, (predictions, status) => {
+                console.log('Response:', { predictions, status });
+                
+                const resultsDiv = document.getElementById('results');
+                
+                if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
+                    resultsDiv.innerHTML = '<h2>Success! Found ' + predictions.length + ' predictions:</h2>';
+                    predictions.forEach((pred, i) => {
+                        resultsDiv.innerHTML += '<p>' + (i+1) + '. ' + pred.description + '</p>';
+                    });
+                } else {
+                    resultsDiv.innerHTML = '<h2>Error:</h2><p>Status: ' + status + '</p>';
+                    
+                    // Show status details
+                    const statuses = google.maps.places.PlacesServiceStatus;
+                    for (const key in statuses) {
+                        if (statuses[key] === status) {
+                            resultsDiv.innerHTML += '<p>Status name: ' + key + '</p>';
+                            break;
+                        }
+                    }
+                }
+            });
+        }
+    </script>
+    
+    <script async defer 
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAY-Y0GOBkn6CtpoaVeRLOxnhXWZgNMnR8&libraries=places&callback=initMap">
+    </script>
+</body>
+</html>

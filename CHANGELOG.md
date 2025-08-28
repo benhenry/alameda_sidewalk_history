@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **UI/UX**: Fixed confusing block field placeholder text in Contribute modal
+  - Changed placeholder from "e.g., 1400 or 1400-1499" to "Enter block number (e.g., 2300)"
+  - Resolved user confusion where placeholder text appeared non-deleteable like default value
+- **Google Places API**: Enhanced Google Street API integration with improved debugging
+  - Added comprehensive console logging to track API loading and request/response flow
+  - Simplified API request parameters to test basic connectivity before applying filters
+  - Improved error handling and status reporting for easier troubleshooting
+  - Made street filtering more flexible to show broader results if no Alameda-specific matches
+  - Created standalone test file (test-places-api.html) for API key validation
+- **Database**: Fixed "Too many parameter values were provided" error when saving segments
+  - Removed extra status parameter from SQLite createSegment function call
+  - SQL query hardcodes status as 'pending' but function was still passing status parameter
+  - Fixed parameter count mismatch between SQL placeholders (9) and function parameters (10)
+- **Testing Infrastructure**: Fixed multiple critical test infrastructure issues
+  - Fixed NextRequest mock in jest.setup.js to handle read-only URL property properly  
+  - Updated all admin/segments API tests to use new database abstraction layer instead of deprecated segmentQueries
+  - Fixed auth context tests to use cookies (js-cookie) instead of localStorage for token storage
+  - Fixed Sidebar component tests by using more specific selectors to avoid duplicate element conflicts
+  - Updated mock data formats to match current SidewalkSegment interface structure
+  - Ensured tests use SQLite in test environment by clearing DATABASE_URL environment variable
 - **Critical**: Fixed SQLite dependency issue preventing production deployment
   - Removed SQLite dependencies from production build by moving them to devDependencies  
   - Created conditional dynamic imports that only load SQLite modules in development

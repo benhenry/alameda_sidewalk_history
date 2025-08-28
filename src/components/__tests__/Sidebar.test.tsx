@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act } from '@testing-library/react'
+import { render, screen, fireEvent, act, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Contractor, SidewalkSegment, FilterOptions } from '@/types/sidewalk'
 
@@ -145,11 +145,16 @@ describe('Sidebar Component', () => {
 
     // Use more specific selectors to avoid conflicts
     expect(screen.getByRole('heading', { name: 'Park Street' })).toBeInTheDocument()
-    expect(screen.getByText('Smith Construction Co.')).toBeInTheDocument()
-    expect(screen.getByText('1925')).toBeInTheDocument()
-    expect(screen.getByText('1400')).toBeInTheDocument()
-    expect(screen.getByText('Well-preserved contractor stamp')).toBeInTheDocument()
-    expect(screen.getByText('P')).toBeInTheDocument()
+    
+    // Find the selected segment details section and search within it
+    const selectedSegmentSection = screen.getByRole('heading', { name: 'Park Street' }).closest('div')
+    expect(selectedSegmentSection).toBeInTheDocument()
+    
+    within(selectedSegmentSection!).getByText('Smith Construction Co.')
+    within(selectedSegmentSection!).getByText('1925')
+    within(selectedSegmentSection!).getByText('1400')
+    within(selectedSegmentSection!).getByText('Well-preserved contractor stamp')
+    within(selectedSegmentSection!).getByText('P')
   })
 
   it('shows sign in button when user is not logged in', () => {

@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { SidewalkSegment } from '@/types/sidewalk'
 import { Save, X, MapPin, Plus, Minus, AlertCircle } from 'lucide-react'
 import { useSidewalkData } from '@/lib/sidewalk-context'
 import { normalizeStreetName, normalizeBlockNumber, validateStreetName, validateBlockNumber } from '@/lib/street-validation'
+import AutocompleteInput from './AutocompleteInput'
+import GooglePlacesInput from './GooglePlacesInput'
 
 // Dynamically import to avoid SSR issues with Leaflet
 const InteractiveSegmentDrawer = dynamic(() => import('./InteractiveSegmentDrawer'), {
@@ -38,6 +40,25 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
   const { sidewalkData, isLoading: loadingSidewalks } = useSidewalkData()
   const [streetValidation, setStreetValidation] = useState<{ isValid: boolean; suggestion?: string; message?: string; isWarning?: boolean }>({ isValid: true })
   const [blockValidation, setBlockValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: true })
+  
+  // Autocomplete state
+  const [contractorSuggestions, setContractorSuggestions] = useState<string[]>([])
+  const [blockSuggestions, setBlockSuggestions] = useState<string[]>([])
+  const [contractorLoading, setContractorLoading] = useState(false)
+  const [blockLoading, setBlockLoading] = useState(false)
+  
+  // Track last searched values to prevent unnecessary API calls
+  // Initialize with current values to prevent initial searches
+  const [lastContractorSearch, setLastContractorSearch] = useState(formData.contractor || '')
+  const [lastBlockSearch, setLastBlockSearch] = useState(`${formData.block || ''}|${formData.street || ''}`)
+  
+  // Use ref to get current street value without triggering re-renders
+  const currentStreetRef = useRef(formData.street)
+  
+  // Update ref when street changes
+  useEffect(() => {
+    currentStreetRef.current = formData.street
+  }, [formData.street])
 
   const handleStreetChange = (street: string) => {
     // Update the street value without normalization during typing
@@ -107,6 +128,69 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
     }))
   }
 
+  // Autocomplete functions
+  const searchContractors = useCallback(async (query: string) => {
+    if (!query || query.length < 2) {
+      setContractorSuggestions([])
+      setLastContractorSearch('')
+      return
+    }
+
+    // Only search if the query has actually changed
+    if (query === lastContractorSearch) {
+      return
+    }
+
+    setLastContractorSearch(query)
+    setContractorLoading(true)
+    try {
+      const response = await fetch(`/api/autocomplete/contractors?q=${encodeURIComponent(query)}`)
+      if (response.ok) {
+        const suggestions = await response.json()
+        setContractorSuggestions(suggestions)
+      }
+    } catch (error) {
+      console.error('Error fetching contractor suggestions:', error)
+    }
+    setContractorLoading(false)
+  }, [lastContractorSearch])
+
+  const searchBlocks = useCallback(async (query: string) => {
+    if (!query || query.length < 1) {
+      setBlockSuggestions([])
+      setLastBlockSearch('')
+      return
+    }
+
+    // Get current street value from ref to avoid dependency issues
+    const currentStreet = currentStreetRef.current
+    
+    // Create a search key that includes both query and street for comparison
+    const searchKey = `${query}|${currentStreet || ''}`
+    
+    // Only search if the query or street has actually changed
+    if (searchKey === lastBlockSearch) {
+      return
+    }
+
+    setLastBlockSearch(searchKey)
+    setBlockLoading(true)
+    try {
+      const params = new URLSearchParams({ q: query })
+      if (currentStreet) {
+        params.append('street', currentStreet)
+      }
+      const response = await fetch(`/api/autocomplete/blocks?${params}`)
+      if (response.ok) {
+        const suggestions = await response.json()
+        setBlockSuggestions(suggestions)
+      }
+    } catch (error) {
+      console.error('Error fetching block suggestions:', error)
+    }
+    setBlockLoading(false)
+  }, [lastBlockSearch])
+
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1200]">
@@ -129,12 +213,15 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Contractor *
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={formData.contractor}
-                onChange={(e) => setFormData(prev => ({ ...prev, contractor: e.target.value }))}
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                onChange={(value) => setFormData(prev => ({ ...prev, contractor: value }))}
+                placeholder="Start typing contractor name..."
                 required
+                className="p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                suggestions={contractorSuggestions}
+                loading={contractorLoading}
+                onSearch={searchContractors}
               />
             </div>
 
@@ -159,20 +246,19 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Street *
               </label>
-              <input
-                type="text"
+              <GooglePlacesInput
                 value={formData.street}
-                onChange={(e) => handleStreetChange(e.target.value)}
+                onChange={handleStreetChange}
                 onBlur={handleStreetBlur}
-                className={`w-full p-2 border rounded-md focus:ring-2 ${
+                placeholder="e.g., Park Street, Marina Village Pkwy"
+                required
+                className={`p-2 border rounded-md focus:ring-2 ${
                   streetValidation.isValid 
                     ? streetValidation.isWarning
                       ? 'border-yellow-300 focus:ring-yellow-500'
                       : 'border-gray-300 focus:ring-blue-500'
                     : 'border-red-300 focus:ring-red-500'
                 }`}
-                placeholder="e.g., Park Street, Marina Village Pkwy"
-                required
               />
               {(!streetValidation.isValid || streetValidation.isWarning) && streetValidation.message && (
                 <div className={`mt-1 flex items-center gap-1 text-sm ${
@@ -199,17 +285,19 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Block *
               </label>
-              <input
-                type="text"
+              <AutocompleteInput
                 value={formData.block}
-                onChange={(e) => handleBlockChange(e.target.value)}
-                className={`w-full p-2 border rounded-md focus:ring-2 ${
+                onChange={handleBlockChange}
+                placeholder="Enter block number (e.g., 2300)"
+                required
+                className={`p-2 border rounded-md focus:ring-2 ${
                   blockValidation.isValid 
                     ? 'border-gray-300 focus:ring-blue-500' 
                     : 'border-red-300 focus:ring-red-500'
                 }`}
-                placeholder="e.g., 1400 or 1400-1499"
-                required
+                suggestions={blockSuggestions}
+                loading={blockLoading}
+                onSearch={searchBlocks}
               />
               {!blockValidation.isValid && (
                 <div className="mt-1 flex items-center gap-1 text-sm text-red-600">

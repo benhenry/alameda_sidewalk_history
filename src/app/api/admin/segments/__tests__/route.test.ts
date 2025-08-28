@@ -1,30 +1,14 @@
 import { GET, PATCH } from '../route'
 import { NextRequest } from 'next/server'
 
-// Mock the database
+// Mock the database abstraction layer
 jest.mock('@/lib/database', () => ({
-  segmentQueries: {
-    getPending: {
-      all: jest.fn(),
-    },
-    getAllWithStatus: {
-      all: jest.fn(),
-    },
-    getById: {
-      get: jest.fn(),
-    },
-    approve: {
-      run: jest.fn(),
-    },
-    reject: {
-      run: jest.fn(),
-    },
-  },
-  parseCoordinates: (str: string) => JSON.parse(str),
-  parseSpecialMarks: (str: string) => str ? JSON.parse(str) : [],
+  getAdminSegments: jest.fn(),
+  updateSegmentStatus: jest.fn(),
+  getSegmentById: jest.fn(),
 }))
 
-import { segmentQueries } from '@/lib/database'
+import { getAdminSegments, updateSegmentStatus, getSegmentById } from '@/lib/database'
 
 describe('/api/admin/segments GET', () => {
   beforeEach(() => {
@@ -35,24 +19,22 @@ describe('/api/admin/segments GET', () => {
     const mockPendingSegments = [
       {
         id: '1',
-        coordinates: '[[37.7652,-122.2416],[37.7660,-122.2420]]',
+        coordinates: [[37.7652, -122.2416], [37.7660, -122.2420]],
         contractor: 'Smith Construction Co.',
         year: 1925,
         street: 'Park Street',
         block: '1400',
         status: 'pending',
-        special_marks: '["P"]',
+        specialMarks: ['P'],
         notes: 'Well-preserved contractor stamp',
-        created_at: '2023-01-01T00:00:00.000Z',
-        updated_at: '2023-01-01T00:00:00.000Z',
-        created_by_username: 'testuser',
-        photo_ids: null,
-        photo_filenames: null,
-        photo_types: null,
+        createdAt: '2023-01-01T00:00:00.000Z',
+        updatedAt: '2023-01-01T00:00:00.000Z',
+        createdByUsername: 'testuser',
+        photos: [],
       }
     ]
 
-    ;(segmentQueries.getPending.all as jest.Mock).mockReturnValue(mockPendingSegments)
+    ;(getAdminSegments as jest.Mock).mockResolvedValue(mockPendingSegments)
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments?status=pending', {
       headers: {
@@ -63,7 +45,7 @@ describe('/api/admin/segments GET', () => {
     const response = await GET(request)
 
     expect(response.status).toBe(200)
-    expect(segmentQueries.getPending.all).toHaveBeenCalled()
+    expect(getAdminSegments).toHaveBeenCalledWith('pending')
 
     const data = await response.json()
     expect(data[0]).toMatchObject({
@@ -79,26 +61,24 @@ describe('/api/admin/segments GET', () => {
     const mockAllSegments = [
       {
         id: '1',
-        coordinates: '[[37.7652,-122.2416]]',
+        coordinates: [[37.7652, -122.2416]],
         contractor: 'Smith Construction Co.',
         year: 1925,
         street: 'Park Street',
         block: '1400',
         status: 'approved',
-        special_marks: null,
+        specialMarks: [],
         notes: null,
-        created_at: '2023-01-01T00:00:00.000Z',
-        updated_at: '2023-01-01T00:00:00.000Z',
-        created_by_username: 'testuser',
-        approved_by_username: 'admin',
-        approved_at: '2023-01-02T00:00:00.000Z',
-        photo_ids: null,
-        photo_filenames: null,
-        photo_types: null,
+        createdAt: '2023-01-01T00:00:00.000Z',
+        updatedAt: '2023-01-01T00:00:00.000Z',
+        createdByUsername: 'testuser',
+        approvedByUsername: 'admin',
+        approvedAt: '2023-01-02T00:00:00.000Z',
+        photos: [],
       }
     ]
 
-    ;(segmentQueries.getAllWithStatus.all as jest.Mock).mockReturnValue(mockAllSegments)
+    ;(getAdminSegments as jest.Mock).mockResolvedValue(mockAllSegments)
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       headers: {
@@ -109,7 +89,7 @@ describe('/api/admin/segments GET', () => {
     const response = await GET(request)
 
     expect(response.status).toBe(200)
-    expect(segmentQueries.getAllWithStatus.all).toHaveBeenCalled()
+    expect(getAdminSegments).toHaveBeenCalledWith(undefined)
 
     const data = await response.json()
     expect(data[0]).toMatchObject({
@@ -136,9 +116,7 @@ describe('/api/admin/segments GET', () => {
   })
 
   it('should handle database errors', async () => {
-    ;(segmentQueries.getAllWithStatus.all as jest.Mock).mockImplementation(() => {
-      throw new Error('Database error')
-    })
+    ;(getAdminSegments as jest.Mock).mockRejectedValue(new Error('Database error'))
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       headers: {
@@ -175,7 +153,7 @@ describe('/api/admin/segments PATCH', () => {
       updated_at: '2023-01-02T00:00:00.000Z',
     }
 
-    ;(segmentQueries.getById.get as jest.Mock).mockReturnValue(mockUpdatedSegment)
+    ;(updateSegmentStatus as jest.Mock).mockResolvedValue(mockUpdatedSegment)
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
@@ -193,8 +171,7 @@ describe('/api/admin/segments PATCH', () => {
     const response = await PATCH(request)
 
     expect(response.status).toBe(200)
-    expect(segmentQueries.approve.run).toHaveBeenCalledWith('admin-user-123', 'segment-1')
-    expect(segmentQueries.getById.get).toHaveBeenCalledWith('segment-1')
+    expect(updateSegmentStatus).toHaveBeenCalledWith('segment-1', 'approved', 'admin-user-123')
 
     const data = await response.json()
     expect(data).toMatchObject({
@@ -219,7 +196,7 @@ describe('/api/admin/segments PATCH', () => {
       updated_at: '2023-01-02T00:00:00.000Z',
     }
 
-    ;(segmentQueries.getById.get as jest.Mock).mockReturnValue(mockUpdatedSegment)
+    ;(updateSegmentStatus as jest.Mock).mockResolvedValue(mockUpdatedSegment)
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
@@ -237,7 +214,7 @@ describe('/api/admin/segments PATCH', () => {
     const response = await PATCH(request)
 
     expect(response.status).toBe(200)
-    expect(segmentQueries.reject.run).toHaveBeenCalledWith('admin-user-123', 'segment-1')
+    expect(updateSegmentStatus).toHaveBeenCalledWith('segment-1', 'rejected', 'admin-user-123')
 
     const data = await response.json()
     expect(data.status).toBe('rejected')
@@ -309,9 +286,7 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should handle database errors during approval', async () => {
-    ;(segmentQueries.approve.run as jest.Mock).mockImplementation(() => {
-      throw new Error('Database error')
-    })
+    ;(updateSegmentStatus as jest.Mock).mockRejectedValue(new Error('Database error'))
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
