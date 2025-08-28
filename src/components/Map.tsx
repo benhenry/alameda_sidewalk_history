@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { MapContainer, TileLayer, Polyline, Popup, useMapEvents } from 'react-leaflet'
+import { useEffect, useState, useRef } from 'react'
+import { MapContainer, TileLayer, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { SidewalkSegment, FilterOptions } from '@/types/sidewalk'
 import { Info } from 'lucide-react'
@@ -21,6 +21,9 @@ interface MapProps {
   filters: FilterOptions
   onSegmentClick: (segment: SidewalkSegment) => void
   highlightedSegmentId?: string
+  zoomToSegment?: string
+  adminPreviewMode?: boolean
+  isAdminPage?: boolean
 }
 
 // Alameda, CA coordinates
@@ -68,7 +71,34 @@ function MapEvents({ onMapClick }: { onMapClick: (latlng: [number, number]) => v
   return null
 }
 
-export default function Map({ segments, filters, onSegmentClick, highlightedSegmentId }: MapProps) {
+function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, segments: SidewalkSegment[] }) {
+  const map = useMap()
+  
+  useEffect(() => {
+    if (zoomToSegment && segments.length > 0) {
+      const segment = segments.find(s => s.id === zoomToSegment)
+      if (segment && segment.coordinates.length > 0) {
+        // Calculate bounds for the segment
+        const latLngs = segment.coordinates.map(coord => L.latLng(coord[0], coord[1]))
+        const bounds = L.latLngBounds(latLngs)
+        
+        // Add some padding to the bounds
+        const paddedBounds = bounds.pad(0.1)
+        
+        // Fit the map to the segment bounds
+        map.fitBounds(paddedBounds, {
+          maxZoom: 18,
+          animate: true,
+          duration: 1
+        })
+      }
+    }
+  }, [zoomToSegment, segments, map])
+  
+  return null
+}
+
+export default function Map({ segments, filters, onSegmentClick, highlightedSegmentId, zoomToSegment, adminPreviewMode, isAdminPage }: MapProps) {
   const [isClient, setIsClient] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
 
@@ -79,6 +109,11 @@ export default function Map({ segments, filters, onSegmentClick, highlightedSegm
   const handleMapClick = (latlng: [number, number]) => {
     console.log('Map clicked at:', latlng)
   }
+
+  // Filter segments for admin preview mode
+  const displaySegments = adminPreviewMode && highlightedSegmentId 
+    ? segments.filter(s => s.id === highlightedSegmentId)
+    : segments
 
   if (!isClient) {
     return <div className="w-full h-screen bg-gray-200 flex items-center justify-center">Loading map...</div>
@@ -96,9 +131,10 @@ export default function Map({ segments, filters, onSegmentClick, highlightedSegm
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapEvents onMapClick={handleMapClick} />
+        <MapController zoomToSegment={zoomToSegment} segments={segments} />
         
         {/* Mapped segments with actual data */}
-        {segments.map((segment) => {
+        {displaySegments.map((segment) => {
           const isHighlighted = highlightedSegmentId === segment.id
           const isPending = segment.status === 'pending'
           
@@ -159,18 +195,21 @@ export default function Map({ segments, filters, onSegmentClick, highlightedSegm
           </div>
           
           <div className="space-y-2 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-red-600 border-dashed border border-red-600"></div>
-              <span>Unmapped sidewalks</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-red-500" style={{height: '4px'}}></div>
-              <span>Highlighted segment</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-1 bg-orange-500 border-dashed border-2 border-orange-500" style={{height: '3px'}}></div>
-              <span>Pending approval</span>
-            </div>
+            {/* Show highlighted segment info only if there's one */}
+            {highlightedSegmentId && (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-1 bg-red-500" style={{height: '4px'}}></div>
+                <span>Highlighted segment</span>
+              </div>
+            )}
+            
+            {/* Show pending approval only on admin page */}
+            {isAdminPage && (
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-1 bg-orange-500 border-dashed border-2 border-orange-500" style={{height: '3px'}}></div>
+                <span>Pending approval</span>
+              </div>
+            )}
             
             <div className="border-t pt-2">
               <div className="font-medium text-gray-700 mb-1">Mapped by decade:</div>

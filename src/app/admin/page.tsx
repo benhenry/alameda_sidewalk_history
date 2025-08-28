@@ -19,6 +19,8 @@ export default function AdminPage() {
   const [contractors, setContractors] = useState<Contractor[]>([])
   const [selectedSegment, setSelectedSegment] = useState<SidewalkSegment | undefined>()
   const [highlightedSegmentId, setHighlightedSegmentId] = useState<string | undefined>()
+  const [zoomToSegmentId, setZoomToSegmentId] = useState<string | undefined>()
+  const [adminPreviewMode, setAdminPreviewMode] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [editingSegment, setEditingSegment] = useState<SidewalkSegment | undefined>()
   const [loading, setLoading] = useState(true)
@@ -109,9 +111,16 @@ export default function AdminPage() {
 
   const handlePreviewSegment = (segment: SidewalkSegment) => {
     setHighlightedSegmentId(segment.id)
+    setZoomToSegmentId(segment.id)
     setSelectedSegment(segment)
-    // Clear highlight after 5 seconds
-    setTimeout(() => setHighlightedSegmentId(undefined), 5000)
+    setAdminPreviewMode(true)
+    
+    // Clear preview mode and zoom after 10 seconds
+    setTimeout(() => {
+      setHighlightedSegmentId(undefined)
+      setZoomToSegmentId(undefined)
+      setAdminPreviewMode(false)
+    }, 10000)
   }
 
   if (loading) {
@@ -155,6 +164,9 @@ export default function AdminPage() {
                   filters={{}}
                   onSegmentClick={setSelectedSegment}
                   highlightedSegmentId={highlightedSegmentId}
+                  zoomToSegment={zoomToSegmentId}
+                  adminPreviewMode={adminPreviewMode}
+                  isAdminPage={true}
                 />
               </div>
             </div>

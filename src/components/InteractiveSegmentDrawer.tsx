@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MapContainer, TileLayer, Polyline, useMap, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
 
@@ -56,13 +56,15 @@ function DrawingEvents({
       
       // Try to snap to nearest sidewalk
       const snappedCoord = findNearestSidewalk(clickCoord[0], clickCoord[1])
-      const finalCoord = snappedCoord || clickCoord
       
-      // Visual feedback if we couldn't snap (clicking too far from sidewalks)
-      if (!snappedCoord && sidewalkData && sidewalkData.length > 0) {
-        // Show a temporary warning or visual indicator
-        console.warn('Click is too far from existing sidewalks. Consider clicking closer to the blue dashed lines.')
+      // Enhanced validation: require snapping to sidewalks when sidewalk data is available
+      if (sidewalkData && sidewalkData.length > 0 && !snappedCoord) {
+        // Show user feedback about needing to click closer to sidewalks
+        alert('Please click closer to the blue dashed lines that represent actual sidewalks. Your click must be within 50 meters of a known sidewalk location.')
+        return // Don't add the point
       }
+      
+      const finalCoord = snappedCoord || clickCoord
       
       const updatedCoords = [...coordinates, finalCoord]
       setCoordinates(updatedCoords)
@@ -126,13 +128,13 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }
     const maxLines = 500
     const limitedLines = lines.slice(0, maxLines)
 
-    // Add polylines to map
+    // Add polylines to map with enhanced visibility
     const overlays = limitedLines.map(line => 
       L.polyline(line, {
-        color: '#3B82F6',
-        weight: 2,
-        opacity: 0.3,
-        dashArray: '5, 5'
+        color: '#2563EB',
+        weight: 3,
+        opacity: 0.6,
+        dashArray: '8, 4'
       }).addTo(map)
     )
 
@@ -265,11 +267,11 @@ export default function InteractiveSegmentDrawer({
           <div className="text-sm">
             <p className="font-medium text-blue-800 mb-1">How to draw a sidewalk segment:</p>
             <ul className="text-blue-700 space-y-1">
-              <li>• Click on the map to add points along the sidewalk</li>
-              <li>• Blue dashed lines show known sidewalk locations</li>
-              <li>• Points will automatically snap to nearby sidewalks (within 50 meters)</li>
-              <li>• Connect points to create a line representing the sidewalk segment</li>
-              <li>• Add at least 2 points to define a segment</li>
+              <li>• <strong>Click directly on or very close to the blue dashed lines</strong></li>
+              <li>• Blue dashed lines show actual sidewalk locations from OpenStreetMap</li>
+              <li>• You must click within 50 meters of a blue line to add a point</li>
+              <li>• Connect 2+ points along the same sidewalk to create a segment</li>
+              <li>• Points will automatically snap to the exact sidewalk location</li>
             </ul>
           </div>
         </div>
@@ -312,11 +314,18 @@ export default function InteractiveSegmentDrawer({
             />
           )}
           
-          {/* Show individual points */}
+          {/* Show individual points as markers */}
           {coordinates.map((coord, index) => (
-            <div key={index}>
-              {/* We'll add markers here if needed */}
-            </div>
+            <CircleMarker
+              key={index}
+              center={coord}
+              radius={6}
+              fillColor="#EF4444"
+              color="#DC2626"
+              weight={2}
+              opacity={0.9}
+              fillOpacity={0.7}
+            />
           ))}
         </MapContainer>
 

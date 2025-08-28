@@ -89,21 +89,7 @@ export function normalizeBlockNumber(block: string): string {
   if (!block) return ''
   
   // Remove extra spaces and normalize
-  const normalized = block.trim()
-  
-  // If it looks like a range (e.g., "1400-1500"), keep as is
-  if (/^\d+-\d+$/.test(normalized)) {
-    return normalized
-  }
-  
-  // If it's just a number, ensure it's the block number (round down to nearest 100)
-  const num = parseInt(normalized)
-  if (!isNaN(num)) {
-    const blockStart = Math.floor(num / 100) * 100
-    return `${blockStart}-${blockStart + 99}`
-  }
-  
-  return normalized
+  return block.trim()
 }
 
 /**
@@ -170,13 +156,7 @@ export function validateBlockNumber(block: string): { isValid: boolean; message?
     return { isValid: false, message: 'Block number is required' }
   }
   
-  // Check if it's a valid format
-  if (/^\d+-\d+$/.test(normalized) || /^\d+$/.test(normalized)) {
-    return { isValid: true }
-  }
-  
-  return { 
-    isValid: false, 
-    message: 'Block should be a number or range (e.g., "1400" or "1400-1499")'
-  }
+  // Allow any non-empty text as a valid block identifier
+  // This supports various formats like "2300", "2300-2310", "North side of 2300 block", etc.
+  return { isValid: true }
 }

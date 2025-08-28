@@ -85,6 +85,7 @@ export default function Home() {
           segments={filteredSegments}
           filters={filters}
           onSegmentClick={setSelectedSegment}
+          isAdminPage={false}
         />
         
         {/* Contribute Button */}
