@@ -6,7 +6,7 @@
 UPDATE sidewalk_segments
 SET geometry = ST_GeomFromText(
     'LINESTRING(' || (
-        SELECT string_agg(coord->>1 || ' ' || coord->>0, ',')
+        SELECT string_agg((coord->1)::text || ' ' || (coord->0)::text, ',')
         FROM jsonb_array_elements(coordinates) AS coord
     ) || ')',
     4326

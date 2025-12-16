@@ -40,14 +40,15 @@ gcloud services enable sqladmin.googleapis.com
 gcloud services enable storage.googleapis.com
 ```
 
-### 3. Set Up Cloud SQL Database
+### 3. Set Up Cloud SQL Database with PostGIS
 
 ```bash
-# Create PostgreSQL instance
+# Create PostgreSQL instance with PostGIS support
 gcloud sql instances create sidewalk-db \
     --database-version=POSTGRES_15 \
     --tier=db-f1-micro \
     --region=us-central1 \
+    --database-flags=cloudsql.enable_postgis=on \
     --root-password=STRONG_PASSWORD_HERE
 
 # Create database
@@ -59,11 +60,34 @@ gcloud sql users create app-user \
     --password=STRONG_USER_PASSWORD
 ```
 
-Run the database setup:
+Run the database setup with PostGIS:
 ```bash
-# Connect to your database and run database-setup.sql
+# Connect to your database
 gcloud sql connect sidewalk-db --user=postgres
-# Then run the contents of database-setup.sql
+
+# Then run the SQL setup scripts in order:
+\i database-setup.sql
+\i database-setup-postgis-migration.sql
+
+# Verify PostGIS is enabled
+SELECT PostGIS_version();
+
+# Verify tables are created
+\dt
+
+# Check reference_sidewalks table
+SELECT COUNT(*) FROM reference_sidewalks;
+```
+
+Import OpenStreetMap sidewalk data:
+```bash
+# Set the database URL
+export DATABASE_URL="postgresql://app-user:STRONG_USER_PASSWORD@/alameda_sidewalk?host=/cloudsql/YOUR_PROJECT_ID:us-central1:sidewalk-db"
+
+# Run the OSM import
+npm run import-osm
+
+# This will import 334+ sidewalk segments from OpenStreetMap
 ```
 
 ### 4. Set Up Cloud Storage
@@ -132,11 +156,16 @@ Store sensitive data in Secret Manager:
 
 ### Database Migration
 
-The app will need to be updated to use PostgreSQL instead of SQLite. Key changes needed:
+The app uses PostgreSQL with PostGIS for geospatial features:
 
-1. **Replace better-sqlite3** with `pg` (PostgreSQL client)
-2. **Update database.ts** to use PostgreSQL queries
-3. **Migrate existing SQLite data** to PostgreSQL
+1. **PostgreSQL with PostGIS**: Production database uses `pg` client with PostGIS extension
+2. **Dual database support**: Smart database abstraction supports both PostgreSQL (production) and SQLite (development)
+3. **PostGIS features**:
+   - Geometry columns with GIST spatial indexes
+   - Reference sidewalk data from OpenStreetMap
+   - Coordinate snapping with sub-meter accuracy
+   - Auto-sync trigger between JSONB coordinates and PostGIS geometry
+4. **OSM data import**: `npm run import-osm` to populate reference_sidewalks table
 
 ## 🔄 Updates & CI/CD
 
