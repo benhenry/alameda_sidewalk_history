@@ -15,6 +15,11 @@
     "test:coverage-report": "npm run test:coverage && node scripts/test-coverage.js",
     "migrate-db": "node scripts/migrate-database.js",
     "fix-db": "node scripts/fix-database.js",
+    "db:start": "docker-compose up -d",
+    "db:stop": "docker-compose down",
+    "db:logs": "docker-compose logs -f postgres",
+    "db:reset": "docker-compose down -v && docker-compose up -d",
+    "import-osm": "node scripts/import-osm-sidewalks.js",
     "audit": "npm audit",
     "audit-fix": "npm audit fix"
   },

@@ -438,6 +438,190 @@ export const closeDatabase = async (): Promise<void> => {
   await pool.end()
 }
 
+// ============================================================================
+// PostGIS Geospatial Functions
+// ============================================================================
+
+// PostGIS geometry conversion utilities
+export function coordinatesToPostGIS(coordinates: [number, number][]): string {
+  const points = coordinates.map(([lat, lng]) => `${lng} ${lat}`).join(',')
+  return `SRID=4326;LINESTRING(${points})`
+}
+
+// Spatial query functions
+export async function getNearbyReferenceSidewalks(
+  point: [number, number],
+  radiusMeters: number = 50
+): Promise<any[]> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT
+        id, osm_id, street,
+        ST_AsGeoJSON(geometry)::json as geometry,
+        ST_Distance(
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+        ) as distance
+      FROM reference_sidewalks
+      WHERE ST_DWithin(
+        geometry::geography,
+        ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+        $3
+      )
+      AND status = 'active'
+      ORDER BY distance
+      LIMIT 10`,
+      [point[0], point[1], radiusMeters]
+    )
+    return result.rows
+  })
+}
+
+export async function snapToNearestSidewalk(
+  point: [number, number]
+): Promise<{ snapped: [number, number]; referenceId: string; distance: number } | null> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT
+        id,
+        ST_Y(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lat,
+        ST_X(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lng,
+        ST_Distance(
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+        ) as distance
+      FROM reference_sidewalks
+      WHERE ST_DWithin(
+        geometry::geography,
+        ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+        50
+      )
+      AND status = 'active'
+      ORDER BY distance
+      LIMIT 1`,
+      [point[0], point[1]]
+    )
+
+    if (result.rows.length === 0) return null
+
+    const row = result.rows[0]
+    return {
+      snapped: [row.lat, row.lng],
+      referenceId: row.id,
+      distance: row.distance
+    }
+  })
+}
+
+export async function createReferenceSidewalk(data: {
+  osmId: number
+  osmType: string
+  geometry: [number, number][]
+  street?: string
+  tags?: Record<string, string>
+}): Promise<any> {
+  return withDatabase(async (client) => {
+    const geometryWKT = coordinatesToPostGIS(data.geometry)
+    const result = await client.query(
+      `INSERT INTO reference_sidewalks (osm_id, osm_type, geometry, street, tags)
+       VALUES ($1, $2, ST_GeomFromText($3), $4, $5)
+       ON CONFLICT (osm_id) DO UPDATE SET
+         geometry = EXCLUDED.geometry,
+         street = EXCLUDED.street,
+         tags = EXCLUDED.tags,
+         last_updated = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [data.osmId, data.osmType, geometryWKT, data.street, JSON.stringify(data.tags || {})]
+    )
+    return result.rows[0]
+  })
+}
+
+export async function getAllReferenceSidewalks(bounds?: {
+  north: number
+  south: number
+  east: number
+  west: number
+}): Promise<any[]> {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT
+        id, osm_id, street,
+        ST_AsGeoJSON(geometry)::json as geometry,
+        tags
+      FROM reference_sidewalks
+      WHERE status = 'active'
+    `
+    const params: any[] = []
+
+    if (bounds) {
+      query += ` AND ST_Intersects(
+        geometry,
+        ST_MakeEnvelope($1, $2, $3, $4, 4326)
+      )`
+      params.push(bounds.west, bounds.south, bounds.east, bounds.north)
+    }
+
+    query += ' LIMIT 10000'
+
+    const result = await client.query(query, params)
+    return result.rows
+  })
+}
+
+export async function updateReferenceSidewalk(
+  id: string,
+  updates: {
+    geometry?: [number, number][]
+    street?: string
+    status?: string
+  }
+): Promise<any> {
+  return withDatabase(async (client) => {
+    const setClauses: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    if (updates.geometry) {
+      setClauses.push(`geometry = ST_GeomFromText($${paramIndex})`)
+      values.push(coordinatesToPostGIS(updates.geometry))
+      paramIndex++
+    }
+    if (updates.street) {
+      setClauses.push(`street = $${paramIndex}`)
+      values.push(updates.street)
+      paramIndex++
+    }
+    if (updates.status) {
+      setClauses.push(`status = $${paramIndex}`)
+      values.push(updates.status)
+      paramIndex++
+    }
+
+    if (setClauses.length === 0) return null
+
+    values.push(id)
+    const result = await client.query(
+      `UPDATE reference_sidewalks
+       SET ${setClauses.join(', ')}, last_updated = CURRENT_TIMESTAMP
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    )
+    return result.rows[0]
+  })
+}
+
+export async function deleteReferenceSidewalk(id: string): Promise<boolean> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      'UPDATE reference_sidewalks SET status = $1 WHERE id = $2',
+      ['deleted', id]
+    )
+    return (result.rowCount || 0) > 0
+  })
+}
+
 export default {
   initDatabase,
   getUserByEmail,
@@ -463,4 +647,12 @@ export default {
   updateUserPassword,
   healthCheck,
   closeDatabase,
+  // PostGIS functions
+  coordinatesToPostGIS,
+  getNearbyReferenceSidewalks,
+  snapToNearestSidewalk,
+  createReferenceSidewalk,
+  getAllReferenceSidewalks,
+  updateReferenceSidewalk,
+  deleteReferenceSidewalk,
 }

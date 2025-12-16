@@ -163,6 +163,63 @@ export async function closeDatabase(): Promise<void> {
   return dbModule.closeDatabase()
 }
 
+// ============================================================================
+// PostGIS Geospatial Functions
+// ============================================================================
+
+export async function getNearbyReferenceSidewalks(
+  point: [number, number],
+  radiusMeters?: number
+): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('getNearbyReferenceSidewalks' in dbModule) {
+    return dbModule.getNearbyReferenceSidewalks(point, radiusMeters)
+  }
+  return []
+}
+
+export async function snapToNearestSidewalk(
+  point: [number, number]
+): Promise<{ snapped: [number, number]; referenceId: string; distance: number } | null> {
+  const dbModule = await getDbModule()
+  if ('snapToNearestSidewalk' in dbModule) {
+    return dbModule.snapToNearestSidewalk(point)
+  }
+  return null
+}
+
+export async function createReferenceSidewalk(data: any): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('createReferenceSidewalk' in dbModule) {
+    return dbModule.createReferenceSidewalk(data)
+  }
+  throw new Error('PostGIS not available')
+}
+
+export async function getAllReferenceSidewalks(bounds?: any): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('getAllReferenceSidewalks' in dbModule) {
+    return dbModule.getAllReferenceSidewalks(bounds)
+  }
+  return []
+}
+
+export async function updateReferenceSidewalk(id: string, updates: any): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('updateReferenceSidewalk' in dbModule) {
+    return dbModule.updateReferenceSidewalk(id, updates)
+  }
+  return null
+}
+
+export async function deleteReferenceSidewalk(id: string): Promise<boolean> {
+  const dbModule = await getDbModule()
+  if ('deleteReferenceSidewalk' in dbModule) {
+    return dbModule.deleteReferenceSidewalk(id)
+  }
+  return false
+}
+
 // Utility functions with fallbacks
 export function parseCoordinates(str: string): [number, number][] {
   try {

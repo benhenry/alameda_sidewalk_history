@@ -109,3 +109,72 @@ COMMENT ON TABLE sidewalk_segments IS 'Sidewalk segments with contractor informa
 COMMENT ON TABLE contractors IS 'Contractor information aggregated from segments';
 COMMENT ON TABLE photos IS 'Photos associated with sidewalk segments';
 COMMENT ON TABLE password_reset_tokens IS 'Tokens for password reset functionality';
+
+-- ============================================================================
+-- PostGIS Extension and Geospatial Features
+-- ============================================================================
+
+-- Enable PostGIS extension
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS postgis_topology;
+
+-- Add geometry column to existing sidewalk_segments table
+ALTER TABLE sidewalk_segments
+ADD COLUMN IF NOT EXISTS geometry geometry(LineString, 4326);
+
+-- Add metadata column
+ALTER TABLE sidewalk_segments
+ADD COLUMN IF NOT EXISTS geometry_source VARCHAR(20) DEFAULT 'manual'
+  CHECK (geometry_source IN ('manual', 'osm', 'corrected'));
+
+-- Create spatial index
+CREATE INDEX IF NOT EXISTS idx_segments_geometry
+ON sidewalk_segments USING GIST(geometry);
+
+-- Create reference_sidewalks table for OSM imports
+CREATE TABLE IF NOT EXISTS reference_sidewalks (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    osm_id BIGINT UNIQUE,
+    osm_type VARCHAR(10),
+    geometry geometry(LineString, 4326) NOT NULL,
+    street VARCHAR(255),
+    surface VARCHAR(50),
+    width NUMERIC(5,2),
+    tags JSONB DEFAULT '{}',
+    imported_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'deleted', 'modified'))
+);
+
+-- Spatial index for reference sidewalks
+CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_geometry
+ON reference_sidewalks USING GIST(geometry);
+
+CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_osm_id ON reference_sidewalks(osm_id);
+CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_street ON reference_sidewalks(street);
+CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_status ON reference_sidewalks(status);
+
+-- Auto-sync trigger: coordinates JSONB → geometry
+CREATE OR REPLACE FUNCTION sync_coordinates_to_geometry()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.coordinates IS NOT NULL THEN
+        NEW.geometry := ST_GeomFromText(
+            'LINESTRING(' || (
+                SELECT string_agg(coord->>1 || ' ' || coord->>0, ',')
+                FROM jsonb_array_elements(NEW.coordinates) AS coord
+            ) || ')',
+            4326
+        );
+    END IF;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER sync_geometry_on_insert_update
+    BEFORE INSERT OR UPDATE OF coordinates ON sidewalk_segments
+    FOR EACH ROW EXECUTE FUNCTION sync_coordinates_to_geometry();
+
+COMMENT ON TABLE reference_sidewalks IS 'Reference sidewalk geometries imported from OpenStreetMap';
+COMMENT ON COLUMN sidewalk_segments.geometry IS 'PostGIS geometry representation of sidewalk line';
+COMMENT ON COLUMN sidewalk_segments.geometry_source IS 'Source of geometry data: manual, osm, or corrected';

@@ -14,9 +14,9 @@ interface InteractiveSegmentDrawerProps {
 // Alameda, CA coordinates
 const ALAMEDA_CENTER: [number, number] = [37.7652, -122.2416]
 
-function DrawingEvents({ 
-  onCoordinatesChange, 
-  coordinates, 
+function DrawingEvents({
+  onCoordinatesChange,
+  coordinates,
   setCoordinates,
   sidewalkData
 }: {
@@ -25,53 +25,81 @@ function DrawingEvents({
   setCoordinates: (coords: [number, number][]) => void
   sidewalkData?: [number, number][]
 }) {
-  const findNearestSidewalk = (clickLat: number, clickLng: number): [number, number] | null => {
-    if (!sidewalkData || sidewalkData.length === 0) return null
-    
-    let nearestPoint: [number, number] | null = null
-    let minDistance = Infinity
-    const maxSnapDistance = 50 // meters
-    
-    for (const point of sidewalkData) {
-      // Calculate distance in meters using Haversine formula approximation
-      const latDiff = clickLat - point[0]
-      const lngDiff = clickLng - point[1]
-      const distance = Math.sqrt(
-        Math.pow(latDiff * 111000, 2) + 
-        Math.pow(lngDiff * 111000 * Math.cos(clickLat * Math.PI / 180), 2)
-      )
-      
-      if (distance < minDistance && distance <= maxSnapDistance) {
-        minDistance = distance
-        nearestPoint = point
+  const [snapping, setSnapping] = useState(false)
+
+  // API-based snapping using PostGIS ST_ClosestPoint
+  const snapCoordinate = async (lat: number, lng: number): Promise<[number, number] | null> => {
+    try {
+      const response = await fetch('/api/snap', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coordinates: [[lat, lng]]
+        })
+      })
+
+      if (!response.ok) {
+        console.error('Snap API error:', response.status)
+        return null
       }
+
+      const data = await response.json()
+
+      // Check if snapping was successful
+      if (data.metadata && data.metadata[0] && data.metadata[0].snapped) {
+        return data.metadata[0].snapped as [number, number]
+      }
+
+      return null
+    } catch (error) {
+      console.error('Snapping error:', error)
+      return null
     }
-    
-    return nearestPoint
   }
 
   useMapEvents({
-    click: (e) => {
+    click: async (e) => {
+      if (snapping) return // Prevent multiple simultaneous snaps
+
       const clickCoord: [number, number] = [e.latlng.lat, e.latlng.lng]
-      
-      // Try to snap to nearest sidewalk
-      const snappedCoord = findNearestSidewalk(clickCoord[0], clickCoord[1])
-      
-      // Enhanced validation: require snapping to sidewalks when sidewalk data is available
-      if (sidewalkData && sidewalkData.length > 0 && !snappedCoord) {
-        // Show user feedback about needing to click closer to sidewalks
-        alert('Please click closer to the blue dashed lines that represent actual sidewalks. Your click must be within 50 meters of a known sidewalk location.')
-        return // Don't add the point
+
+      setSnapping(true)
+      try {
+        // Try to snap to nearest sidewalk using PostGIS
+        const snappedCoord = await snapCoordinate(clickCoord[0], clickCoord[1])
+
+        // Require snapping when sidewalk data is available
+        if (sidewalkData && sidewalkData.length > 0 && !snappedCoord) {
+          alert('No nearby sidewalk found. Please click closer to the blue reference lines (within 50 meters of actual sidewalk locations).')
+          return
+        }
+
+        const finalCoord = snappedCoord || clickCoord
+
+        const updatedCoords = [...coordinates, finalCoord]
+        setCoordinates(updatedCoords)
+        onCoordinatesChange(updatedCoords)
+      } finally {
+        setSnapping(false)
       }
-      
-      const finalCoord = snappedCoord || clickCoord
-      
-      const updatedCoords = [...coordinates, finalCoord]
-      setCoordinates(updatedCoords)
-      onCoordinatesChange(updatedCoords)
     },
   })
-  return null
+
+  return snapping ? (
+    <div style={{
+      position: 'absolute',
+      top: '10px',
+      right: '10px',
+      background: 'rgba(0,0,0,0.7)',
+      color: 'white',
+      padding: '8px 12px',
+      borderRadius: '4px',
+      zIndex: 1000,
+      fontSize: '14px'
+    }}>
+      Snapping to sidewalk...
+    </div>
+  ) : null
 }
 
 function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }) {

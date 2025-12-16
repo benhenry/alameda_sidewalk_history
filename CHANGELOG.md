@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - PostGIS Migration (2025-12-15)
+
+**Phase 1: PostGIS Foundation**
+- **PostGIS Extension**: Enabled PostGIS and PostGIS Topology extensions in database schema
+- **Geometry Columns**: Added `geometry` column (LineString, SRID 4326) to `sidewalk_segments` table for spatial operations
+- **Dual-Column Approach**: Maintains existing JSONB `coordinates` column alongside new PostGIS `geometry` for backward compatibility
+- **Auto-Sync Trigger**: Created `sync_coordinates_to_geometry()` trigger to automatically convert JSONB coordinates to PostGIS geometry on insert/update
+- **Reference Sidewalks Table**: New `reference_sidewalks` table for OpenStreetMap-sourced sidewalk geometries
+  - PostGIS geometry column with GIST spatial index
+  - Metadata fields: osm_id, osm_type, street, surface, width, tags (JSONB)
+  - Status tracking (active, deleted, modified)
+- **Docker Compose**: Local PostgreSQL + PostGIS development environment (postgis/postgis:15-3.4-alpine)
+- **Database Functions**: 7 new PostGIS spatial query functions
+  - `coordinatesToPostGIS()` - Convert [lat, lng] arrays to WKT LINESTRING
+  - `getNearbyReferenceSidewalks()` - Find sidewalks within radius using ST_DWithin
+  - `snapToNearestSidewalk()` - Snap point to closest sidewalk using ST_ClosestPoint
+  - `createReferenceSidewalk()` - CRUD for reference data
+  - `getAllReferenceSidewalks()` - Fetch with optional bounding box filter
+  - `updateReferenceSidewalk()` - Update reference geometry/metadata
+  - `deleteReferenceSidewalk()` - Soft delete (status='deleted')
+- **Package Scripts**: Added `db:start`, `db:stop`, `db:logs`, `db:reset` for Docker management
+- **Migration Script**: `database-setup-postgis-migration.sql` to backfill existing segments with geometry
+
+**Phase 2: OpenStreetMap Import Pipeline**
+- **OSM Import Script**: `scripts/import-osm-sidewalks.js` to fetch Alameda sidewalks from Overpass API
+  - Queries footways, paths, and sidewalks within Alameda bounding box
+  - Converts OSM node geometries to PostGIS LineStrings
+  - Upsert logic with ON CONFLICT handling
+  - Progress reporting and error handling
+- **Snap API**: `/api/snap` endpoint for real-time coordinate snapping
+  - POST endpoint accepting coordinate arrays
+  - Uses PostGIS ST_ClosestPoint for precise snapping to LineString edges
+  - 50-meter snap radius with distance reporting
+  - Comprehensive test coverage (8 passing tests)
+- **Reference Sidewalks API**: `/api/reference-sidewalks` endpoint
+  - GeoJSON FeatureCollection output format
+  - Optional bounding box filtering for viewport optimization
+  - Returns sidewalk geometries with OSM metadata
+
+**Phase 3: Admin Interface**
+- **Admin Page**: `/admin/reference-sidewalks` for managing reference data
+  - Interactive Leaflet map with GeoJSON overlay
+  - Statistics dashboard (total sidewalks, named streets, status)
+  - One-click OSM import with live progress logging
+  - Refresh functionality to reload data
+- **Admin Import API**: `/api/admin/import-osm` endpoint
+  - Admin-only access control (checks x-user-role header)
+  - Executes import script via Node.js child_process
+  - 5-minute timeout with 10MB output buffer
+  - Returns stdout/stderr for debugging
+
+**Phase 4: Enhanced Frontend Snapping**
+- **API-Based Snapping**: Replaced client-side Haversine calculation with PostGIS-powered `/api/snap` endpoint
+  - `InteractiveSegmentDrawer` now uses async API calls for snapping
+  - Loading indicator during snap operations
+  - More accurate snapping to LineString edges (not just point nodes)
+- **Removed Old Validation**: Cleaned up segments API route
+  - Removed `validateSidewalkCoordinates()` calls (coordinates pre-validated by snap API)
+  - Removed dependency on `sidewalk-validation.ts` functions
+  - Simplified segment creation flow
+
+### Changed
+- **Development Database**: Switched from SQLite to PostgreSQL + PostGIS via Docker Compose for full spatial feature support
+- **Environment Configuration**: Updated `.env.local.example` to recommend PostgreSQL connection string
+- **Coordinate Snapping**: Moved from client-side approximation to server-side PostGIS spatial queries for higher accuracy
+- **Database Abstraction**: Extended with PostGIS functions while maintaining backward compatibility
+
+### Technical Details
+- **Coordinate System**: SRID 4326 (WGS 84) for all geometries
+- **Coordinate Order**: Leaflet uses [lat, lng], PostGIS uses [lng, lat] - conversion handled in `coordinatesToPostGIS()`
+- **Spatial Queries**: ST_DWithin for proximity, ST_ClosestPoint for snapping, ST_Distance for measurements
+- **Test Coverage**: Added 13 new test files for PostGIS utilities and snap API
+
+### Migration Notes
+- **Backward Compatible**: Existing JSONB coordinates remain intact; geometry column populated via trigger
+- **Zero Downtime**: New geometry column added with IF NOT EXISTS; can deploy without data loss
+- **Rollback Plan**: Geometry columns can remain unused if rollback needed; all old code still works
+- **Production Setup**: Requires `CREATE EXTENSION postgis` on Cloud SQL before deployment
+
+---
+
+## [Previous Unreleased Changes]
+
 ### Fixed
 - **UI/UX**: Fixed confusing block field placeholder text in Contribute modal
   - Changed placeholder from "e.g., 1400 or 1400-1499" to "Enter block number (e.g., 2300)"
