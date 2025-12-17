@@ -161,7 +161,7 @@ BEGIN
     IF NEW.coordinates IS NOT NULL THEN
         NEW.geometry := ST_GeomFromText(
             'LINESTRING(' || (
-                SELECT string_agg(coord->>1 || ' ' || coord->>0, ',')
+                SELECT string_agg((coord->1)::text || ' ' || (coord->0)::text, ',')
                 FROM jsonb_array_elements(NEW.coordinates) AS coord
             ) || ')',
             4326
