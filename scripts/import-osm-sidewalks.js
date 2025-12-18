@@ -21,8 +21,16 @@ const ALAMEDA_BOUNDS = {
 
 const overpassQuery = `[out:json][timeout:60];
 (
+  // Explicit sidewalks
   way["highway"="footway"]["footway"="sidewalk"](${ALAMEDA_BOUNDS.south},${ALAMEDA_BOUNDS.west},${ALAMEDA_BOUNDS.north},${ALAMEDA_BOUNDS.east});
+  // All footways (many sidewalks don't have footway=sidewalk tag)
+  way["highway"="footway"](${ALAMEDA_BOUNDS.south},${ALAMEDA_BOUNDS.west},${ALAMEDA_BOUNDS.north},${ALAMEDA_BOUNDS.east});
+  // Pedestrian ways
+  way["highway"="pedestrian"](${ALAMEDA_BOUNDS.south},${ALAMEDA_BOUNDS.west},${ALAMEDA_BOUNDS.north},${ALAMEDA_BOUNDS.east});
+  // Paths that allow foot traffic
   way["highway"="path"]["foot"!="no"](${ALAMEDA_BOUNDS.south},${ALAMEDA_BOUNDS.west},${ALAMEDA_BOUNDS.north},${ALAMEDA_BOUNDS.east});
+  // Living streets (residential streets with pedestrian priority)
+  way["highway"="living_street"](${ALAMEDA_BOUNDS.south},${ALAMEDA_BOUNDS.west},${ALAMEDA_BOUNDS.north},${ALAMEDA_BOUNDS.east});
 );
 (._;>;);
 out geom;`

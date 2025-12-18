@@ -10,27 +10,32 @@ import UserMenu from './UserMenu'
 interface SidebarProps {
   contractors: Contractor[]
   segments: SidewalkSegment[]
+  visibleSegments?: SidewalkSegment[]
   filters: FilterOptions
   onFiltersChange: (filters: FilterOptions) => void
   selectedSegment?: SidewalkSegment
 }
 
-export default function Sidebar({ 
-  contractors, 
-  segments, 
-  filters, 
+export default function Sidebar({
+  contractors,
+  segments,
+  visibleSegments,
+  filters,
   onFiltersChange,
-  selectedSegment 
+  selectedSegment
 }: SidebarProps) {
   const [searchTerm, setSearchTerm] = useState('')
   const [showFilters, setShowFilters] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  
+
   const { user, loading } = useAuth()
 
-  const years = Array.from(new Set(segments.map(s => s.year))).sort()
+  // Use visible segments for legend if available, otherwise all segments
+  const legendSegments = visibleSegments || segments
+
+  const years = Array.from(new Set(legendSegments.map(s => s.year))).sort()
   const decades = Array.from(new Set(years.map(y => Math.floor(y / 10) * 10))).sort()
-  const streets = Array.from(new Set(segments.map(s => s.street))).sort()
+  const streets = Array.from(new Set(legendSegments.map(s => s.street))).sort()
 
   const filteredContractors = contractors.filter(c => 
     c.name.toLowerCase().includes(searchTerm.toLowerCase())

@@ -20,6 +20,7 @@ interface MapProps {
   segments: SidewalkSegment[]
   filters: FilterOptions
   onSegmentClick: (segment: SidewalkSegment) => void
+  onViewportChange?: (visibleSegments: SidewalkSegment[]) => void
   highlightedSegmentId?: string
   zoomToSegment?: string
   adminPreviewMode?: boolean
@@ -62,12 +63,46 @@ const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions, highl
 }
 
 
-function MapEvents({ onMapClick }: { onMapClick: (latlng: [number, number]) => void }) {
-  useMapEvents({
+function MapEvents({
+  onMapClick,
+  onViewportChange,
+  segments
+}: {
+  onMapClick: (latlng: [number, number]) => void
+  onViewportChange?: (visibleSegments: SidewalkSegment[]) => void
+  segments: SidewalkSegment[]
+}) {
+  const map = useMapEvents({
     click: (e) => {
       onMapClick([e.latlng.lat, e.latlng.lng])
     },
+    moveend: () => {
+      if (onViewportChange) {
+        // Get current map bounds
+        const bounds = map.getBounds()
+
+        // Filter segments that are visible in viewport
+        const visibleSegments = segments.filter(segment => {
+          // Check if any coordinate of the segment is within bounds
+          return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
+        })
+
+        onViewportChange(visibleSegments)
+      }
+    },
   })
+
+  // Trigger initial viewport calculation
+  useEffect(() => {
+    if (onViewportChange && map) {
+      const bounds = map.getBounds()
+      const visibleSegments = segments.filter(segment => {
+        return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
+      })
+      onViewportChange(visibleSegments)
+    }
+  }, [segments, onViewportChange, map])
+
   return null
 }
 
@@ -98,7 +133,7 @@ function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, se
   return null
 }
 
-export default function Map({ segments, filters, onSegmentClick, highlightedSegmentId, zoomToSegment, adminPreviewMode, isAdminPage }: MapProps) {
+export default function Map({ segments, filters, onSegmentClick, onViewportChange, highlightedSegmentId, zoomToSegment, adminPreviewMode, isAdminPage }: MapProps) {
   const [isClient, setIsClient] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
 
@@ -111,7 +146,7 @@ export default function Map({ segments, filters, onSegmentClick, highlightedSegm
   }
 
   // Filter segments for admin preview mode
-  const displaySegments = adminPreviewMode && highlightedSegmentId 
+  const displaySegments = adminPreviewMode && highlightedSegmentId
     ? segments.filter(s => s.id === highlightedSegmentId)
     : segments
 
@@ -130,7 +165,11 @@ export default function Map({ segments, filters, onSegmentClick, highlightedSegm
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapEvents onMapClick={handleMapClick} />
+        <MapEvents
+          onMapClick={handleMapClick}
+          onViewportChange={onViewportChange}
+          segments={segments}
+        />
         <MapController zoomToSegment={zoomToSegment} segments={segments} />
         
         {/* Mapped segments with actual data */}

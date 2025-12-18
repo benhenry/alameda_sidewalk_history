@@ -21,7 +21,8 @@ export default function Home() {
   const [selectedSegment, setSelectedSegment] = useState<SidewalkSegment | undefined>()
   const [loading, setLoading] = useState(true)
   const [showContributeModal, setShowContributeModal] = useState(false)
-  
+  const [visibleSegments, setVisibleSegments] = useState<SidewalkSegment[]>([])
+
   const { user } = useAuth()
 
   useEffect(() => {
@@ -76,6 +77,7 @@ export default function Home() {
       <Sidebar
         contractors={contractors}
         segments={segments}
+        visibleSegments={visibleSegments}
         filters={filters}
         onFiltersChange={setFilters}
         selectedSegment={selectedSegment}
@@ -85,6 +87,7 @@ export default function Home() {
           segments={filteredSegments}
           filters={filters}
           onSegmentClick={setSelectedSegment}
+          onViewportChange={setVisibleSegments}
           isAdminPage={false}
         />
         
