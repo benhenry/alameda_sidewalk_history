@@ -134,16 +134,18 @@ ON sidewalk_segments USING GIST(geometry);
 -- Create reference_sidewalks table for OSM imports
 CREATE TABLE IF NOT EXISTS reference_sidewalks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    osm_id BIGINT UNIQUE,
+    osm_id BIGINT NOT NULL,
     osm_type VARCHAR(10),
     geometry geometry(LineString, 4326) NOT NULL,
     street VARCHAR(255),
     surface VARCHAR(50),
     width NUMERIC(5,2),
     tags JSONB DEFAULT '{}',
+    side VARCHAR(10), -- left, right, or NULL for separate ways
     imported_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'deleted', 'modified'))
+    status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'deleted', 'modified')),
+    CONSTRAINT reference_sidewalks_osm_side_key UNIQUE (osm_id, side)
 );
 
 -- Spatial index for reference sidewalks
@@ -153,6 +155,7 @@ ON reference_sidewalks USING GIST(geometry);
 CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_osm_id ON reference_sidewalks(osm_id);
 CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_street ON reference_sidewalks(street);
 CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_status ON reference_sidewalks(status);
+CREATE INDEX IF NOT EXISTS idx_reference_sidewalks_side ON reference_sidewalks(side);
 
 -- Auto-sync trigger: coordinates JSONB → geometry
 CREATE OR REPLACE FUNCTION sync_coordinates_to_geometry()
