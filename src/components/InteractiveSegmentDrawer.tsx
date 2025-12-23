@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
@@ -104,17 +104,26 @@ function DrawingEvents({
 
 function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }) {
   const map = useMap()
-  
-  useEffect(() => {
-    if (!sidewalkData || sidewalkData.length === 0 || !map) return
+  const [visibleLines, setVisibleLines] = useState<[number, number][][]>([])
+
+  // Function to calculate visible sidewalk lines based on current viewport
+  const updateVisibleLines = useCallback(() => {
+    if (!sidewalkData || sidewalkData.length === 0 || !map) {
+      setVisibleLines([])
+      return
+    }
 
     // Get current map bounds to only render visible sidewalks
-    // Add null check for getBounds method
     const bounds = map.getBounds ? map.getBounds() : null
-    if (!bounds) return
-    
+    if (!bounds) {
+      setVisibleLines([])
+      return
+    }
+
     const visibleData = sidewalkData.filter(coord => bounds.contains(coord))
-    
+
+    console.log('🗺️ InteractiveDrawer - filtering', sidewalkData.length, 'to', visibleData.length, 'visible coordinates')
+
     // Limit the number of points to improve performance
     const maxPoints = 5000
     const step = Math.max(1, Math.floor(visibleData.length / maxPoints))
@@ -123,20 +132,20 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }
     // Group consecutive coordinates into lines for better performance
     const lines: [number, number][][] = []
     let currentLine: [number, number][] = []
-    
+
     for (let i = 0; i < sampledData.length; i++) {
       if (currentLine.length === 0) {
         currentLine.push(sampledData[i])
       } else {
         const lastCoord = currentLine[currentLine.length - 1]
         const currentCoord = sampledData[i]
-        
+
         // If coordinates are close (within ~50m), add to current line
         const distance = Math.sqrt(
           Math.pow((currentCoord[0] - lastCoord[0]) * 111000, 2) +
           Math.pow((currentCoord[1] - lastCoord[1]) * 111000, 2)
         )
-        
+
         if (distance < 50 && currentLine.length < 50) {
           currentLine.push(currentCoord)
         } else {
@@ -147,7 +156,7 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }
         }
       }
     }
-    
+
     if (currentLine.length > 1) {
       lines.push(currentLine)
     }
@@ -156,22 +165,38 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }
     const maxLines = 500
     const limitedLines = lines.slice(0, maxLines)
 
-    // Add polylines to map with enhanced visibility
-    const overlays = limitedLines.map(line => 
-      L.polyline(line, {
-        color: '#2563EB',
-        weight: 3,
-        opacity: 0.6,
-        dashArray: '8, 4'
-      }).addTo(map)
-    )
+    setVisibleLines(limitedLines)
+  }, [map, sidewalkData])
 
-    return () => {
-      overlays.forEach(overlay => map.removeLayer(overlay))
+  // Update on mount and when sidewalkData changes
+  useEffect(() => {
+    updateVisibleLines()
+  }, [updateVisibleLines])
+
+  // Update on map movement
+  useMapEvents({
+    moveend: () => {
+      updateVisibleLines()
+    },
+    zoomend: () => {
+      updateVisibleLines()
     }
-  }, [map, sidewalkData]) // eslint-disable-line react-hooks/exhaustive-deps
+  })
 
-  return null
+  return (
+    <>
+      {visibleLines.map((line, index) => (
+        <Polyline
+          key={`sidewalk-${index}`}
+          positions={line}
+          color="#2563EB"
+          weight={3}
+          opacity={0.6}
+          dashArray="8, 4"
+        />
+      ))}
+    </>
+  )
 }
 
 function MapSearch({ onLocationFound }: { onLocationFound: (lat: number, lng: number) => void }) {

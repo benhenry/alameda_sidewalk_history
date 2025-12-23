@@ -87,6 +87,7 @@ function MapEvents({
           return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
         })
 
+        console.log('🗺️ Viewport changed - visible segments:', visibleSegments.length, 'of', segments.length)
         onViewportChange(visibleSegments)
       }
     },
@@ -99,6 +100,7 @@ function MapEvents({
       const visibleSegments = segments.filter(segment => {
         return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
       })
+      console.log('🗺️ Initial viewport - visible segments:', visibleSegments.length, 'of', segments.length)
       onViewportChange(visibleSegments)
     }
   }, [segments, onViewportChange, map])
@@ -136,6 +138,7 @@ function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, se
 export default function Map({ segments, filters, onSegmentClick, onViewportChange, highlightedSegmentId, zoomToSegment, adminPreviewMode, isAdminPage }: MapProps) {
   const [isClient, setIsClient] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
+  const [visibleSegments, setVisibleSegments] = useState<SidewalkSegment[]>(segments)
 
   useEffect(() => {
     setIsClient(true)
@@ -145,10 +148,41 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
     console.log('Map clicked at:', latlng)
   }
 
+  // Handle viewport changes - update both local state and parent callback
+  const handleViewportChange = (visible: SidewalkSegment[]) => {
+    setVisibleSegments(visible)
+    if (onViewportChange) {
+      onViewportChange(visible)
+    }
+  }
+
   // Filter segments for admin preview mode
   const displaySegments = adminPreviewMode && highlightedSegmentId
     ? segments.filter(s => s.id === highlightedSegmentId)
     : segments
+
+  // Calculate decades present in VISIBLE segments for dynamic legend
+  const legendSegments = visibleSegments.length > 0 ? visibleSegments : displaySegments
+  const decadesPresent = Array.from(
+    new Set(legendSegments.map(s => Math.floor(s.year / 10) * 10))
+  ).sort()
+
+  // Decade color mapping
+  const decadeColors: { [key: number]: string } = {
+    1900: '#8B4513',
+    1910: '#CD853F',
+    1920: '#DEB887',
+    1930: '#F4A460',
+    1940: '#2E8B57',
+    1950: '#3CB371',
+    1960: '#20B2AA',
+    1970: '#4682B4',
+    1980: '#6495ED',
+    1990: '#9370DB',
+    2000: '#BA55D3',
+    2010: '#FF69B4',
+    2020: '#FF1493'
+  }
 
   if (!isClient) {
     return <div className="w-full h-screen bg-gray-200 flex items-center justify-center">Loading map...</div>
@@ -167,7 +201,7 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
         />
         <MapEvents
           onMapClick={handleMapClick}
-          onViewportChange={onViewportChange}
+          onViewportChange={handleViewportChange}
           segments={segments}
         />
         <MapController zoomToSegment={zoomToSegment} segments={segments} />
@@ -250,59 +284,25 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
               </div>
             )}
             
-            <div className="border-t pt-2">
-              <div className="font-medium text-gray-700 mb-1">Mapped by decade:</div>
-              <div className="grid grid-cols-2 gap-1">
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#8B4513'}}></div>
-                  <span>1900s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#CD853F'}}></div>
-                  <span>1910s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#DEB887'}}></div>
-                  <span>1920s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#F4A460'}}></div>
-                  <span>1930s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#2E8B57'}}></div>
-                  <span>1940s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#3CB371'}}></div>
-                  <span>1950s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#20B2AA'}}></div>
-                  <span>1960s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#4682B4'}}></div>
-                  <span>1970s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#6495ED'}}></div>
-                  <span>1980s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#9370DB'}}></div>
-                  <span>1990s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#BA55D3'}}></div>
-                  <span>2000s</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-3 h-1" style={{backgroundColor: '#FF69B4'}}></div>
-                  <span>2010s</span>
+            {decadesPresent.length > 0 && (
+              <div className="border-t pt-2">
+                <div className="font-medium text-gray-700 mb-1">Mapped by decade:</div>
+                <div className="grid grid-cols-2 gap-1">
+                  {decadesPresent.map(decade => (
+                    <div key={decade} className="flex items-center gap-1">
+                      <div className="w-3 h-1" style={{backgroundColor: decadeColors[decade] || '#666666'}}></div>
+                      <span>{decade}s</span>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {decadesPresent.length === 0 && (
+              <div className="border-t pt-2 text-gray-500 text-center">
+                <p>No segments in view</p>
+              </div>
+            )}
             
             <div className="border-t pt-2 text-gray-600">
               <p>Click segments for details</p>

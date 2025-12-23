@@ -33,6 +33,8 @@ export default function Sidebar({
   // Use visible segments for legend if available, otherwise all segments
   const legendSegments = visibleSegments || segments
 
+  console.log('📊 Sidebar - using', visibleSegments ? 'visible' : 'all', 'segments:', legendSegments.length)
+
   const years = Array.from(new Set(legendSegments.map(s => s.year))).sort()
   const decades = Array.from(new Set(years.map(y => Math.floor(y / 10) * 10))).sort()
   const streets = Array.from(new Set(legendSegments.map(s => s.street))).sort()
