@@ -1,10 +1,32 @@
 
-### FEATURES
+### FEATURES - PRIORITY ORDER
 
-1. Set up Cloud SQL database with PostGIS extension
-2. Configure environment variables and secrets
-3. Set up Cloud Storage for file uploads
-4. Configure custom domain (optional)
+**P0 - Authentication Overhaul**
+1. Replace custom login with Google OAuth authentication
+   - Remove custom username/password system
+   - Implement Google Sign-In OAuth flow
+   - Migrate existing user accounts (map emails to Google accounts)
+   - Update AuthModal and auth context for OAuth
+   - Remove password reset functionality (no longer needed)
+
+**P1 - Deployment Automation**
+2. Set up automatic deployment from GitHub to Google Cloud Run
+   - Configure GitHub Actions for CI/CD
+   - Automated builds on push to main branch
+   - Environment variable management via Google Secret Manager
+   - Verify cloudbuild.yaml configuration
+
+**P2 - Domain & Production Setup**
+3. Configure custom domain (after OAuth is working)
+   - Domain name: TBD
+   - SSL certificate setup
+   - DNS configuration
+   - Cloud Run custom domain mapping
+
+**P3 - Production Infrastructure**
+4. Set up Cloud SQL database with PostGIS extension (production)
+5. Set up Cloud Storage for file uploads (production)
+6. Configure environment variables and secrets for production
 
 ### COMPLETED (2025-12-16)
 
