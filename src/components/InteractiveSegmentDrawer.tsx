@@ -8,7 +8,7 @@ import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
 interface InteractiveSegmentDrawerProps {
   onCoordinatesChange: (coordinates: [number, number][]) => void
   initialCoordinates?: [number, number][]
-  sidewalkData?: [number, number][]
+  sidewalkData?: [number, number][][]  // Array of LineStrings
 }
 
 // Alameda, CA coordinates
@@ -23,7 +23,7 @@ function DrawingEvents({
   onCoordinatesChange: (coords: [number, number][]) => void
   coordinates: [number, number][]
   setCoordinates: (coords: [number, number][]) => void
-  sidewalkData?: [number, number][]
+  sidewalkData?: [number, number][][]
 }) {
   const [snapping, setSnapping] = useState(false)
 
@@ -102,7 +102,7 @@ function DrawingEvents({
   ) : null
 }
 
-function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }) {
+function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][][] }) {
   const map = useMap()
   const [visibleLines, setVisibleLines] = useState<[number, number][][]>([])
 
@@ -120,50 +120,16 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][] }
       return
     }
 
-    const visibleData = sidewalkData.filter(coord => bounds.contains(coord))
+    // Filter LineStrings that have at least one point within viewport
+    const visibleLineStrings = sidewalkData.filter(lineString => {
+      return lineString.some(coord => bounds.contains(coord))
+    })
 
-    console.log('🗺️ InteractiveDrawer - filtering', sidewalkData.length, 'to', visibleData.length, 'visible coordinates')
+    console.log('🗺️ InteractiveDrawer - filtering', sidewalkData.length, 'LineStrings to', visibleLineStrings.length, 'visible')
 
-    // Limit the number of points to improve performance
-    const maxPoints = 5000
-    const step = Math.max(1, Math.floor(visibleData.length / maxPoints))
-    const sampledData = visibleData.filter((_, index) => index % step === 0)
-
-    // Group consecutive coordinates into lines for better performance
-    const lines: [number, number][][] = []
-    let currentLine: [number, number][] = []
-
-    for (let i = 0; i < sampledData.length; i++) {
-      if (currentLine.length === 0) {
-        currentLine.push(sampledData[i])
-      } else {
-        const lastCoord = currentLine[currentLine.length - 1]
-        const currentCoord = sampledData[i]
-
-        // If coordinates are close (within ~50m), add to current line
-        const distance = Math.sqrt(
-          Math.pow((currentCoord[0] - lastCoord[0]) * 111000, 2) +
-          Math.pow((currentCoord[1] - lastCoord[1]) * 111000, 2)
-        )
-
-        if (distance < 50 && currentLine.length < 50) {
-          currentLine.push(currentCoord)
-        } else {
-          if (currentLine.length > 1) {
-            lines.push([...currentLine])
-          }
-          currentLine = [currentCoord]
-        }
-      }
-    }
-
-    if (currentLine.length > 1) {
-      lines.push(currentLine)
-    }
-
-    // Only create a limited number of polylines
-    const maxLines = 500
-    const limitedLines = lines.slice(0, maxLines)
+    // Limit the number of polylines for performance (though we now have proper lines)
+    const maxLines = 1000  // Increased from 500 since we have proper LineStrings now
+    const limitedLines = visibleLineStrings.slice(0, maxLines)
 
     setVisibleLines(limitedLines)
   }, [map, sidewalkData])

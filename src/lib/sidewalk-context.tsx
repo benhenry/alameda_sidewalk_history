@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 
 interface SidewalkContextType {
-  sidewalkData: [number, number][]
+  sidewalkData: [number, number][][]  // Array of LineStrings
   isLoading: boolean
   error: string | null
 }
@@ -15,7 +15,7 @@ const SidewalkContext = createContext<SidewalkContextType>({
 })
 
 export function SidewalkProvider({ children }: { children: ReactNode }) {
-  const [sidewalkData, setSidewalkData] = useState<[number, number][]>([])
+  const [sidewalkData, setSidewalkData] = useState<[number, number][][]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -25,7 +25,8 @@ export function SidewalkProvider({ children }: { children: ReactNode }) {
         const response = await fetch('/api/sidewalks')
         if (response.ok) {
           const data = await response.json()
-          setSidewalkData(data.coordinates || [])
+          // Use lineStrings if available, otherwise fall back to empty array
+          setSidewalkData(data.lineStrings || [])
         } else {
           setError('Failed to fetch sidewalk data')
         }
