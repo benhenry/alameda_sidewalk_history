@@ -28,10 +28,11 @@
 
 ### Core Functionality
 - **Interactive Map**: Full-screen Leaflet map with color-coded segments by decade
-- **Community Contributions**: User registration, photo uploads, segment creation
+- **Community Contributions**: OAuth sign-in, photo uploads, segment creation
 - **Admin Interface**: Full CRUD operations, user management, moderation tools
-- **Authentication**: JWT-based auth with BCrypt password hashing
+- **Authentication**: Auth.js v5 with Google OAuth and GitHub OAuth (replaced password auth on 2025-12-25)
 - **File Management**: Photo uploads with Google Cloud Storage integration
+- **Geospatial Features**: PostGIS-powered coordinate snapping with 2,600+ reference sidewalks from OpenStreetMap
 
 ---
 

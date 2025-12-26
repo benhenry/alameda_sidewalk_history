@@ -7,6 +7,141 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - OAuth Authentication Migration (2025-12-25)
+
+**MAJOR CHANGE: Replaced custom password authentication with OAuth (Google + GitHub)**
+
+**Authentication System Overhaul:**
+- **Auth.js v5 Integration**: Installed next-auth@beta with PostgreSQL adapter (@auth/pg-adapter)
+- **OAuth Providers**: Google OAuth 2.0 and GitHub OAuth configured
+- **Database Schema**: New Auth.js tables added to database:
+  - `accounts` table - stores OAuth provider accounts linked to users
+  - `sessions` table - manages active user sessions
+  - `verification_tokens` table - handles email verification and passwordless login
+  - Extended `users` table with `email_verified` and `image` fields
+- **Automatic Account Linking**: Existing users automatically linked to OAuth accounts by email
+- **Session Strategy**: Database-backed sessions with 30-day expiry
+
+**New Files Created:**
+- `src/auth.ts` - Core Auth.js configuration with provider setup and callbacks
+- `src/app/api/auth/[...nextauth]/route.ts` - Auth.js API route handler
+- `src/types/next-auth.d.ts` - TypeScript module augmentation for custom session fields
+- `src/components/Providers.tsx` - SessionProvider wrapper with nested providers
+- `database-setup-authjs.sql` - Database migration for Auth.js tables
+- `OAUTH_SETUP.md` - Comprehensive 7-section guide for OAuth credential setup
+
+**Components Updated:**
+- `AuthModal.tsx` - Completely rewritten for OAuth (715 lines → simple OAuth buttons)
+  - Google sign-in button with brand colors
+  - GitHub sign-in button with GitHub branding
+  - Removed all password/email input fields
+- `auth-context.tsx` - Rewritten to use NextAuth's useSession hook
+  - Replaced custom JWT logic with Auth.js session management
+  - Added session field to context
+  - Automatic username derivation from email for OAuth users
+- `UserMenu.tsx` - Updated to handle optional username field from OAuth
+- `layout.tsx` - Wrapped with SessionProvider via Providers component
+- `Providers.tsx` - New client component wrapping SessionProvider → AuthProvider → SidewalkProvider
+
+**Files/Routes Removed (Password Auth Eliminated):**
+- Deleted `/api/auth/login` route and tests
+- Deleted `/api/auth/register` route
+- Deleted `/api/auth/me` route
+- Deleted `/api/auth/forgot-password` route and tests
+- Deleted `/api/auth/reset-password` route and tests
+- Deleted `ForgotPasswordModal.tsx` component and tests
+- Deleted `/reset-password` page
+- Removed all password reset functionality
+- Removed BCrypt password hashing logic
+- Removed JWT token generation and validation
+
+**Environment Variables:**
+- **Added (OAuth)**:
+  - `GOOGLE_CLIENT_ID` - OAuth 2.0 client ID from Google Cloud Console
+  - `GOOGLE_CLIENT_SECRET` - OAuth 2.0 client secret
+  - `GITHUB_CLIENT_ID` - OAuth app client ID from GitHub
+  - `GITHUB_CLIENT_SECRET` - OAuth app client secret
+  - `AUTH_SECRET` - Encryption secret for Auth.js (32+ characters)
+  - `NEXTAUTH_URL` - Application URL for OAuth callbacks
+- **Removed (No Longer Needed)**:
+  - `JWT_SECRET` - replaced by AUTH_SECRET
+  - `SMTP_*` - all email configuration (password reset no longer needed)
+
+**Dependencies:**
+- Added: `next-auth@5.0.0-beta.30` (Auth.js v5)
+- Added: `@auth/pg-adapter@1.7.3` (PostgreSQL adapter)
+
+**Code Statistics:**
+- **Net reduction**: -1,320 lines of code
+- 715 insertions, 2,035 deletions
+- 24 files changed (8 new, 11 deleted, 5 modified)
+
+**Migration Path:**
+- Existing users with email/password accounts will be automatically linked when they sign in with OAuth using the same email
+- No data loss - all user data, segments, and photos preserved
+- The `signIn` callback in `src/auth.ts` handles account linking seamlessly
+
+**Security Improvements:**
+- No more password storage vulnerabilities
+- OAuth providers handle authentication security
+- Reduced attack surface (no password reset flow to exploit)
+- Industry-standard OAuth 2.0 implementation
+- Automatic security updates from Auth.js team
+
+**Next Steps Required:**
+1. Set up Google OAuth credentials (see OAUTH_SETUP.md section 1)
+2. Set up GitHub OAuth app (see OAUTH_SETUP.md section 2)
+3. Generate AUTH_SECRET: `openssl rand -base64 32`
+4. Update `.env.local` with all OAuth credentials
+5. Test OAuth flow with both providers
+6. Update production environment variables when deploying
+
+---
+
+### Added - Reference Sidewalk Data Improvements (2025-12-25)
+
+**CRITICAL FIX: Preserved LineString connectivity**
+- **Root Cause**: API was flattening 2,600 LineStrings into 16,742 disconnected points
+- **Impact**: Reference sidewalks appeared as scattered dots instead of continuous lines
+- **Solution**: API now returns proper LineString arrays preserving original OSM geometry
+
+**Road-Based Sidewalk Import:**
+- **Discovery**: Many roads have `sidewalk=both/left/right` tags not being imported
+- **Implementation**: Created tiled import script for road-based sidewalks
+  - Uses Turf.js `lineOffset()` to generate 3-meter offset geometries
+  - Splits Alameda into 6 tiles to avoid Overpass API timeouts
+  - Processes each tile with 3-second delays between requests
+- **Database Schema Update**:
+  - Added `side` column to reference_sidewalks (left, right, or NULL)
+  - Updated unique constraint to `(osm_id, side)` for road-based sidewalks
+- **Coverage Improvement**: 756 road ways imported → 1,280 sidewalk segments (2 per road with sidewalk=both)
+- **Total Coverage**: Increased from 334 → 2,600 reference sidewalks (7.8x improvement!)
+
+**Dynamic Viewport Features:**
+- **Map Legend**: Now dynamically shows only decades present in visible viewport
+  - Replaces hardcoded 1900s-2010s with actual data-driven decades
+  - Shows "No segments in view" when viewport is empty
+  - Updates automatically on pan/zoom
+- **InteractiveSegmentDrawer**: Reference sidewalks now filter by viewport
+  - Increased max visible lines from 500 → 1,000 (feasible with proper LineStrings)
+  - Real-time updates when panning/zooming in Contribute dialog
+  - Proper LineString rendering instead of point reconstruction
+
+**Files Modified:**
+- `src/app/api/sidewalks/route.ts` - Return LineStrings instead of flattened points
+- `src/lib/sidewalk-context.tsx` - Updated context type to handle LineString arrays
+- `src/components/InteractiveSegmentDrawer.tsx` - Direct LineString rendering with viewport filtering
+- `src/components/Map.tsx` - Dynamic decade legend based on visible segments
+- `src/components/Sidebar.tsx` - Use visibleSegments prop for dynamic statistics
+- `database-setup.sql` - Added side column and updated constraints
+- `scripts/import-osm-roads-tiled.js` - New tiled import for road-based sidewalks
+
+**Example Impact:**
+- **Before**: Fairview Ave showed as 22 disconnected dots
+- **After**: Fairview Ave shows as 2 complete 530-meter LineStrings (left + right sides)
+
+---
+
 ### Added - PostGIS Migration (2025-12-15)
 
 **Phase 1: PostGIS Foundation**
