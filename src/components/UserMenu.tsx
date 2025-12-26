@@ -38,10 +38,10 @@ export default function UserMenu() {
         className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
       >
         <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm font-medium">
-          {user.username.charAt(0).toUpperCase()}
+          {(user.username || user.email || 'U').charAt(0).toUpperCase()}
         </div>
         <span className="hidden md:block text-gray-700 font-medium">
-          {user.username}
+          {user.username || user.email}
         </span>
         {isAdmin() && (
           <Shield className="h-4 w-4 text-blue-600" />

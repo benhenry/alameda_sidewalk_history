@@ -1,16 +1,23 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import Cookies from 'js-cookie'
-import { AuthUser, LoginCredentials, RegisterData } from '@/types/auth'
+import React, { createContext, useContext } from 'react'
+import { useSession, signOut } from 'next-auth/react'
+import { Session } from 'next-auth'
+
+interface AuthUser {
+  id: string
+  email: string
+  username?: string
+  role: 'admin' | 'user'
+  image?: string | null
+}
 
 interface AuthContextType {
   user: AuthUser | null
   loading: boolean
-  login: (credentials: LoginCredentials) => Promise<{ success: boolean; error?: string }>
-  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>
   logout: () => void
   isAdmin: () => boolean
+  session: Session | null
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,106 +31,20 @@ export function useAuth() {
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { data: session, status } = useSession()
+  const loading = status === 'loading'
 
-  useEffect(() => {
-    checkAuth()
-  }, [])
+  // Convert NextAuth session to our AuthUser format
+  const user: AuthUser | null = session?.user ? {
+    id: session.user.id,
+    email: session.user.email || '',
+    username: session.user.name || session.user.email?.split('@')[0] || 'User',
+    role: session.user.role || 'user',
+    image: session.user.image
+  } : null
 
-  const checkAuth = async () => {
-    try {
-      // Skip auth check during SSR
-      if (typeof window === 'undefined') {
-        setLoading(false)
-        return
-      }
-
-      const token = Cookies.get('auth-token')
-      if (!token) {
-        setLoading(false)
-        return
-      }
-
-      const response = await fetch('/api/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
-
-      if (response.ok) {
-        const userData = await response.json()
-        setUser({
-          id: userData.id,
-          email: userData.email,
-          username: userData.username,
-          role: userData.role
-        })
-      } else {
-        // Invalid token, remove it
-        Cookies.remove('auth-token')
-      }
-    } catch (error) {
-      console.error('Auth check error:', error)
-      Cookies.remove('auth-token')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const login = async (credentials: LoginCredentials) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(credentials)
-      })
-
-      const data = await response.json()
-
-      if (response.ok) {
-        setUser(data.user)
-        Cookies.set('auth-token', data.token, { expires: 7 }) // 7 days
-        return { success: true }
-      } else {
-        return { success: false, error: data.error }
-      }
-    } catch (error) {
-      console.error('Login error:', error)
-      return { success: false, error: 'Network error' }
-    }
-  }
-
-  const register = async (data: RegisterData) => {
-    try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      })
-
-      const responseData = await response.json()
-
-      if (response.ok) {
-        setUser(responseData.user)
-        Cookies.set('auth-token', responseData.token, { expires: 7 }) // 7 days
-        return { success: true }
-      } else {
-        return { success: false, error: responseData.error }
-      }
-    } catch (error) {
-      console.error('Registration error:', error)
-      return { success: false, error: 'Network error' }
-    }
-  }
-
-  const logout = () => {
-    setUser(null)
-    Cookies.remove('auth-token')
+  const logout = async () => {
+    await signOut({ callbackUrl: '/' })
   }
 
   const isAdmin = () => {
@@ -133,10 +54,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value = {
     user,
     loading,
-    login,
-    register,
     logout,
-    isAdmin
+    isAdmin,
+    session
   }
 
   return (
