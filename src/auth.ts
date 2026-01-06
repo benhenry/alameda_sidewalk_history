@@ -5,10 +5,22 @@ import PostgresAdapter from "@auth/pg-adapter"
 import { Pool } from "pg"
 
 // Create PostgreSQL connection pool for Auth.js
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-})
+// Support both DATABASE_URL (development) and individual PG* variables (production)
+const pool = new Pool(
+  process.env.DATABASE_URL
+    ? {
+        connectionString: process.env.DATABASE_URL,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      }
+    : {
+        host: process.env.PGHOST,
+        port: parseInt(process.env.PGPORT || '5432'),
+        database: process.env.PGDATABASE,
+        user: process.env.PGUSER,
+        password: process.env.PGPASSWORD,
+        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+      }
+)
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PostgresAdapter(pool),

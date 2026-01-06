@@ -72,6 +72,6 @@ jobs:
           --memory 1Gi \
           --cpu 1 \
           --max-instances 10 \
-          --add-cloudsql-instances=${{ secrets.CLOUD_SQL_INSTANCE }} \
-          --set-env-vars NODE_ENV=production,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},GCS_PROJECT_ID=$PROJECT_ID \
-          --set-secrets JWT_SECRET=jwt-secret:latest,DATABASE_URL=database-url:latest
+          --add-cloudsql-instances=$PROJECT_ID:us-central1:sidewalk-db \
+          --set-env-vars NODE_ENV=production,ENABLE_REGISTRATION=true,ENABLE_FILE_UPLOADS=true,MAX_FILE_SIZE_MB=10,PGHOST=/cloudsql/$PROJECT_ID:us-central1:sidewalk-db,PGDATABASE=postgres,PGUSER=postgres,GCS_BUCKET_NAME=${{ secrets.GCS_BUCKET_NAME }},GCS_PROJECT_ID=$PROJECT_ID \
+          --set-secrets JWT_SECRET=jwt-secret:latest,PGPASSWORD=postgres-password:latest,AUTH_SECRET=auth-secret:latest,GOOGLE_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_CLIENT_SECRET=google-oauth-client-secret:latest,GITHUB_CLIENT_ID=github-oauth-client-id:latest,GITHUB_CLIENT_SECRET=github-oauth-client-secret:latest

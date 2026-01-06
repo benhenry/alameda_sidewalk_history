@@ -29,7 +29,7 @@ const customJestConfig = {
     '^leaflet$': '<rootDir>/__mocks__/leaflet.js',
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-leaflet|@turf)/)'
+    'node_modules/(?!(react-leaflet|@turf|next-auth|@auth)/)'
   ],
   testEnvironmentOptions: {
     customExportConditions: ['node', 'node-addons'],

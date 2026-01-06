@@ -29,6 +29,7 @@ export const useMap = () => ({
   getZoom: jest.fn(() => 14),
   getCenter: jest.fn(() => ({ lat: 37.7652, lng: -122.2416 })),
   setView: jest.fn(),
+  fitBounds: jest.fn(),
   removeLayer: jest.fn(),
   addLayer: jest.fn(),
 })

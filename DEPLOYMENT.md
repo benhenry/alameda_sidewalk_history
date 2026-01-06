@@ -103,24 +103,67 @@ gsutil iam ch allUsers:objectViewer gs://alameda-sidewalk-uploads-YOUR_PROJECT_I
 
 ### 5. Create Secrets
 
-```bash
-# Create JWT secret
-echo -n "your-super-secure-jwt-secret-32-chars" | gcloud secrets create jwt-secret --data-file=-
+Use the included helper script for easy setup:
 
-# Create database URL secret
-DB_URL="postgresql://app-user:STRONG_USER_PASSWORD@/alameda_sidewalk?host=/cloudsql/YOUR_PROJECT_ID:us-central1:sidewalk-db"
-echo -n "$DB_URL" | gcloud secrets create database-url --data-file=-
+```bash
+./setup-secrets.sh
 ```
 
+Or create secrets manually:
+
+```bash
+# Core secrets
+echo -n "your-super-secure-jwt-secret-32-chars" | gcloud secrets create jwt-secret --data-file=-
+echo -n "your-postgres-password" | gcloud secrets create postgres-password --data-file=-
+echo -n "$(openssl rand -base64 32)" | gcloud secrets create auth-secret --data-file=-
+
+# OAuth secrets (required for Auth.js)
+echo -n "your-google-client-id" | gcloud secrets create google-oauth-client-id --data-file=-
+echo -n "your-google-client-secret" | gcloud secrets create google-oauth-client-secret --data-file=-
+echo -n "your-github-client-id" | gcloud secrets create github-oauth-client-id --data-file=-
+echo -n "your-github-client-secret" | gcloud secrets create github-oauth-client-secret --data-file=-
+
+# Grant Cloud Run access to secrets
+PROJECT_ID=$(gcloud config get-value project)
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:$PROJECT_ID-compute@developer.gserviceaccount.com" \
+  --role="roles/secretmanager.secretAccessor"
+```
+
+**Setting up OAuth credentials:**
+
+1. **Google OAuth**: https://console.cloud.google.com/apis/credentials
+   - Create OAuth 2.0 Client ID
+   - Add authorized redirect: `https://your-domain.run.app/api/auth/callback/google`
+
+2. **GitHub OAuth**: https://github.com/settings/developers
+   - Create new OAuth App
+   - Add callback URL: `https://your-domain.run.app/api/auth/callback/github`
+
 ### 6. Build and Deploy
+
+Use Cloud Build (recommended):
+
+```bash
+gcloud builds submit --config=cloudbuild.yaml
+```
+
+Or use the deployment script:
+
+```bash
+./deploy.sh YOUR_PROJECT_ID us-central1
+```
+
+Or deploy manually:
 
 ```bash
 # Build the Docker image
 gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/alameda-sidewalk-map
 
 # Deploy to Cloud Run
+PROJECT_ID=$(gcloud config get-value project)
 gcloud run deploy alameda-sidewalk-map \
-    --image gcr.io/YOUR_PROJECT_ID/alameda-sidewalk-map \
+    --image gcr.io/$PROJECT_ID/alameda-sidewalk-map \
     --region=us-central1 \
     --platform=managed \
     --allow-unauthenticated \
@@ -128,9 +171,9 @@ gcloud run deploy alameda-sidewalk-map \
     --memory=1Gi \
     --cpu=1 \
     --max-instances=10 \
-    --add-cloudsql-instances=YOUR_PROJECT_ID:us-central1:sidewalk-db \
-    --set-env-vars=NODE_ENV=production,GCS_BUCKET_NAME=alameda-sidewalk-uploads-YOUR_PROJECT_ID,GCS_PROJECT_ID=YOUR_PROJECT_ID \
-    --set-secrets=JWT_SECRET=jwt-secret:latest,DATABASE_URL=database-url:latest
+    --add-cloudsql-instances=$PROJECT_ID:us-central1:sidewalk-db \
+    --set-env-vars=NODE_ENV=production,ENABLE_REGISTRATION=true,ENABLE_FILE_UPLOADS=true,MAX_FILE_SIZE_MB=10,PGHOST=/cloudsql/$PROJECT_ID:us-central1:sidewalk-db,PGDATABASE=postgres,PGUSER=postgres,GCS_BUCKET_NAME=alameda-sidewalk-uploads-$PROJECT_ID,GCS_PROJECT_ID=$PROJECT_ID \
+    --set-secrets=JWT_SECRET=jwt-secret:latest,PGPASSWORD=postgres-password:latest,AUTH_SECRET=auth-secret:latest,GOOGLE_CLIENT_ID=google-oauth-client-id:latest,GOOGLE_CLIENT_SECRET=google-oauth-client-secret:latest,GITHUB_CLIENT_ID=github-oauth-client-id:latest,GITHUB_CLIENT_SECRET=github-oauth-client-secret:latest
 ```
 
 ## 🔧 Configuration
@@ -149,10 +192,17 @@ Set these in Cloud Run:
 
 Store sensitive data in Secret Manager:
 
-| Secret | Description |
-|--------|-------------|
-| `jwt-secret` | JWT signing key |
-| `database-url` | PostgreSQL connection string |
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `jwt-secret` | JWT signing key | Yes |
+| `postgres-password` | PostgreSQL password | Yes |
+| `auth-secret` | NextAuth.js secret | Yes |
+| `google-oauth-client-id` | Google OAuth client ID | Yes |
+| `google-oauth-client-secret` | Google OAuth secret | Yes |
+| `github-oauth-client-id` | GitHub OAuth client ID | Yes |
+| `github-oauth-client-secret` | GitHub OAuth secret | Yes |
+| `google-maps-api-key` | Google Maps API key | Optional |
+| Email-related secrets | SendGrid/Gmail/SMTP | Optional |
 
 ### Database Migration
 
@@ -176,13 +226,60 @@ gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/alameda-sidewalk-map
 gcloud run deploy alameda-sidewalk-map --image gcr.io/YOUR_PROJECT_ID/alameda-sidewalk-map --region=us-central1
 ```
 
-### Automatic CI/CD
-The included `cloudbuild.yaml` enables automatic deployment on code changes:
+### Automatic CI/CD with GitHub Actions
+
+The app includes a GitHub Actions workflow (`.github/workflows/deploy.yml`) for automatic deployment on push to main.
+
+#### Setup GitHub Secrets:
+
+Go to your GitHub repository → Settings → Secrets → Actions and add:
+
+1. **`GCP_PROJECT_ID`**: Your Google Cloud project ID
+2. **`GCP_SA_KEY`**: Service account JSON key (create with commands below)
+3. **`CLOUD_SQL_INSTANCE`**: Format: `PROJECT_ID:us-central1:sidewalk-db`
+4. **`GCS_BUCKET_NAME`**: Your Cloud Storage bucket name
+
+#### Create Service Account for GitHub Actions:
+
+```bash
+PROJECT_ID=$(gcloud config get-value project)
+
+# Create service account
+gcloud iam service-accounts create github-actions \
+  --display-name="GitHub Actions"
+
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:github-actions@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:github-actions@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:github-actions@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role="roles/iam.serviceAccountUser"
+
+# Create and download key
+gcloud iam service-accounts keys create github-actions-key.json \
+  --iam-account=github-actions@$PROJECT_ID.iam.gserviceaccount.com
+
+# Copy contents of github-actions-key.json and paste as GCP_SA_KEY secret
+cat github-actions-key.json
+
+# Delete the local key file after copying
+rm github-actions-key.json
+```
+
+### Alternative: Cloud Build Triggers
+
+Or use Cloud Build triggers directly:
 
 ```bash
 # Connect to GitHub repo
 gcloud builds triggers create github \
-    --repo-name=alameda_sidewalk_map \
+    --repo-name=alameda_sidewalk_history \
     --repo-owner=YOUR_GITHUB_USERNAME \
     --branch-pattern="^main$" \
     --build-config=cloudbuild.yaml
