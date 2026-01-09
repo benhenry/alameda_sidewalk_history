@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         })
       } else {
         // No nearby sidewalk found within snap radius
-        snappedCoordinates.push(coord)
+        snappedCoordinates.push(coord as [number, number])
         metadata.push({
           original: coord,
           snapped: null,
