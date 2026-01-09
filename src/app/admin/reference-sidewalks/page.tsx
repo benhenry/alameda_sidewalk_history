@@ -156,7 +156,7 @@ export default function AdminReferenceSidewalks() {
               {sidewalks.length > 0 && (
                 <GeoJSON
                   key={JSON.stringify(sidewalks.length)}
-                  data={{ type: 'FeatureCollection', features: sidewalks }}
+                  data={{ type: 'FeatureCollection', features: sidewalks } as any}
                   style={{
                     color: '#3B82F6',
                     weight: 3,
