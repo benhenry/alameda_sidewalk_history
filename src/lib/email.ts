@@ -164,13 +164,17 @@ function createEmailProvider(): EmailProvider {
 
 // Main email service
 class EmailService {
-  private provider: EmailProvider
+  private provider: EmailProvider | null = null
 
-  constructor() {
-    this.provider = createEmailProvider()
+  private getProvider(): EmailProvider {
+    if (!this.provider) {
+      this.provider = createEmailProvider()
+    }
+    return this.provider
   }
 
   async sendPasswordResetEmail(email: string, resetUrl: string): Promise<void> {
+    const provider = this.getProvider()
     const subject = 'Reset Your Alameda Sidewalk Map Password'
     
     const html = `
@@ -234,7 +238,7 @@ If you didn't request this password reset, you can safely ignore this email. You
 This is an automated message, please do not reply to this email.
     `
 
-    await this.provider.sendEmail({
+    await provider.sendEmail({
       to: email,
       subject,
       html,
@@ -243,6 +247,7 @@ This is an automated message, please do not reply to this email.
   }
 
   async sendWelcomeEmail(email: string, username: string): Promise<void> {
+    const provider = this.getProvider()
     const subject = 'Welcome to Alameda Sidewalk Map!'
     
     const html = `
@@ -285,7 +290,7 @@ This is an automated message, please do not reply to this email.
       </html>
     `
 
-    await this.provider.sendEmail({
+    await provider.sendEmail({
       to: email,
       subject,
       html
@@ -294,7 +299,8 @@ This is an automated message, please do not reply to this email.
 
   // Test email sending
   async sendTestEmail(email: string): Promise<void> {
-    await this.provider.sendEmail({
+    const provider = this.getProvider()
+    await provider.sendEmail({
       to: email,
       subject: 'Alameda Sidewalk Map - Email Test',
       html: '<h1>Email Service Working!</h1><p>This is a test email from your Alameda Sidewalk Map application.</p>'
