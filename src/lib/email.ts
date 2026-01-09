@@ -112,8 +112,8 @@ class SMTPProvider implements EmailProvider {
 
   async sendEmail({ to, subject, html, text }: EmailOptions): Promise<void> {
     const nodemailer = await import('nodemailer')
-    
-    const transporter = nodemailer.default.createTransporter(this.config)
+
+    const transporter = nodemailer.default.createTransport(this.config)
 
     await transporter.sendMail({
       from: this.fromEmail,
