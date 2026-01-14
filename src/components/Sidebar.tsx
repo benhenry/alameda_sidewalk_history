@@ -68,7 +68,7 @@ export default function Sidebar({
             )}
           </div>
           <p className="text-gray-600 text-sm">
-            Explore the history of Alameda's sidewalks through contractor stamps and installation years
+            Explore the history of Alameda&apos;s sidewalks through contractor stamps and installation years
           </p>
           {user && (
             <div className="mt-3 p-3 bg-blue-50 rounded-lg">

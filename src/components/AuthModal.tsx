@@ -67,7 +67,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
           <div className="mt-6 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
-              By signing in, you agree to contribute constructively to preserving Alameda's sidewalk history.
+              By signing in, you agree to contribute constructively to preserving Alameda&apos;s sidewalk history.
             </p>
           </div>
         </div>

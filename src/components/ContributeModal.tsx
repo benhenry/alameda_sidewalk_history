@@ -76,7 +76,7 @@ export default function ContributeModal({
               Contribute to Alameda Sidewalk Map
             </h2>
             <p className="text-gray-600 text-sm mt-1">
-              Help document the history of Alameda's sidewalks
+              Help document the history of Alameda&apos;s sidewalks
             </p>
           </div>
           <button
@@ -124,7 +124,7 @@ export default function ContributeModal({
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• Provide accurate contractor names and installation years</li>
                   <li>• Use precise coordinates for the sidewalk segment</li>
-                  <li>• Document special markings like pipe indicators ("P")</li>
+                  <li>• Document special markings like pipe indicators (&quot;P&quot;)</li>
                   <li>• Include helpful notes about the condition or historical context</li>
                   <li>• Upload clear photos of contractor stamps when possible</li>
                 </ul>
@@ -161,7 +161,7 @@ export default function ContributeModal({
         <div className="p-6 border-t bg-gray-50">
           <div className="flex justify-between items-center">
             <p className="text-sm text-gray-600">
-              Thank you for contributing to preserve Alameda's sidewalk history!
+              Thank you for contributing to preserve Alameda&apos;s sidewalk history!
             </p>
             <button
               onClick={onClose}
