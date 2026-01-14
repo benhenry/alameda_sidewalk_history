@@ -126,8 +126,8 @@ When you create a pull request:
 3. Coverage must meet 85% threshold
 4. All checks must pass before merging (recommended)
 
-**Note**: This test PR verifies the CI workflow runs correctly on pull requests.
+**Note**: CI verification complete - tests run successfully on PRs, deployments proceed independently on main.
 
 ---
 
-*Last updated: 2026-01-13*
+*Last updated: 2026-01-14*
