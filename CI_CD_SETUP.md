@@ -17,7 +17,23 @@ This project uses **Google Cloud Build** for automated deployments.
 ### Configuration Files
 
 - **`cloudbuild.yaml`** - Cloud Build configuration (primary CI/CD)
-- **`.github/workflows/deploy.yml.disabled`** - GitHub Actions workflow (disabled, Cloud Build is preferred)
+- **`.github/workflows/ci.yml`** - Test workflow (runs only on pull requests)
+- **`.github/workflows/deploy.yml.disabled`** - Deprecated deployment workflow (disabled)
+
+### Testing Strategy
+
+**Tests run only on pull requests**, not on direct pushes to main. This allows:
+- Fast iteration when pushing to main
+- Code quality checks before merging PRs
+- Deployments proceed regardless of test status (deployments are independent)
+
+To run tests locally:
+```bash
+npm run test:ci        # Run all tests
+npm run test:coverage  # Check coverage (90%+ required)
+npm run typecheck      # TypeScript validation
+npm run lint           # Code linting
+```
 
 ### Monitoring Deployments
 
