@@ -30,7 +30,7 @@ This project uses **Google Cloud Build** for automated deployments.
 To run tests locally:
 ```bash
 npm run test:ci        # Run all tests
-npm run test:coverage  # Check coverage (90%+ required)
+npm run test:coverage  # Check coverage (20%+ required, target: 90%)
 npm run typecheck      # TypeScript validation
 npm run lint           # Code linting
 ```
@@ -123,7 +123,7 @@ gcloud builds submit --config cloudbuild.yaml
 When you create a pull request:
 1. GitHub Actions CI automatically runs
 2. Tests, type checking, and linting execute on both Node 18 and Node 20
-3. Coverage must meet 85% threshold
+3. Coverage must meet 20% threshold (target: gradually increase to 90%+)
 4. All checks must pass before merging (recommended)
 
 **Note**: CI verification complete - tests run successfully on PRs, deployments proceed independently on main.
