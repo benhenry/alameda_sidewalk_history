@@ -1,8 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [ main, develop ]
+  # Only run tests on pull requests, not on pushes to main
+  # This allows fast iteration on main while still catching issues in PRs
   pull_request:
     branches: [ main ]
 
