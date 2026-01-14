@@ -23,7 +23,7 @@ describe('api utilities', () => {
 
   describe('getAuthHeaders', () => {
     it('should return Authorization header when token exists', () => {
-      mockCookies.get.mockReturnValue('test-token')
+      mockCookies.get.mockReturnValue('test-token' as any)
 
       const headers = getAuthHeaders()
 
@@ -32,7 +32,7 @@ describe('api utilities', () => {
     })
 
     it('should return empty object when no token', () => {
-      mockCookies.get.mockReturnValue(undefined)
+      mockCookies.get.mockReturnValue(undefined as any)
 
       const headers = getAuthHeaders()
 
@@ -42,7 +42,7 @@ describe('api utilities', () => {
 
   describe('authenticatedFetch', () => {
     it('should make fetch request with auth headers', async () => {
-      mockCookies.get.mockReturnValue('test-token')
+      mockCookies.get.mockReturnValue('test-token' as any)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true })
@@ -60,7 +60,7 @@ describe('api utilities', () => {
     })
 
     it('should make fetch request without auth when no token', async () => {
-      mockCookies.get.mockReturnValue(undefined)
+      mockCookies.get.mockReturnValue(undefined as any)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true })
@@ -76,7 +76,7 @@ describe('api utilities', () => {
     })
 
     it('should merge custom headers', async () => {
-      mockCookies.get.mockReturnValue('test-token')
+      mockCookies.get.mockReturnValue('test-token' as any)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true })

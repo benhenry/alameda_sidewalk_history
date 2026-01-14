@@ -144,9 +144,11 @@ describe('InteractiveSegmentDrawer', () => {
   })
 
   it('should render with sidewalk overlay data', async () => {
-    const sidewalkData: [number, number][] = [
-      [37.7652, -122.2416],
-      [37.7653, -122.2417]
+    const sidewalkData: [number, number][][] = [
+      [
+        [37.7652, -122.2416],
+        [37.7653, -122.2417]
+      ]
     ]
 
     render(
