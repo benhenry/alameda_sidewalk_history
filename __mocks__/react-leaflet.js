@@ -1,20 +1,20 @@
-import React from 'react'
+const React = require('react')
 
-export const MapContainer = ({ children, ...props }) => 
+const MapContainer = ({ children, ...props }) =>
   React.createElement('div', { 'data-testid': 'map-container', ...props }, children)
 
-export const TileLayer = (props) => 
+const TileLayer = (props) =>
   React.createElement('div', { 'data-testid': 'tile-layer', ...props })
 
-export const Polyline = (props) => 
+const Polyline = (props) =>
   React.createElement('div', { 'data-testid': 'polyline', ...props })
 
-export const Popup = ({ children, ...props }) => 
+const Popup = ({ children, ...props }) =>
   React.createElement('div', { 'data-testid': 'popup', ...props }, children)
 
-export const useMapEvents = (eventHandlers) => {
+const useMapEvents = (eventHandlers) => {
   React.useEffect(() => {
-    if (eventHandlers.click) {
+    if (eventHandlers && eventHandlers.click) {
       // Mock click event
       const mockEvent = { latlng: { lat: 37.7652, lng: -122.2416 } }
       eventHandlers.click(mockEvent)
@@ -23,7 +23,7 @@ export const useMapEvents = (eventHandlers) => {
   return null
 }
 
-export const useMap = () => ({
+const useMap = () => ({
   on: jest.fn(),
   off: jest.fn(),
   getZoom: jest.fn(() => 14),
@@ -33,3 +33,12 @@ export const useMap = () => ({
   removeLayer: jest.fn(),
   addLayer: jest.fn(),
 })
+
+module.exports = {
+  MapContainer,
+  TileLayer,
+  Polyline,
+  Popup,
+  useMapEvents,
+  useMap,
+}

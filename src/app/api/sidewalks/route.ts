@@ -12,7 +12,13 @@ export async function GET() {
     const lineStrings: [number, number][][] = []
 
     for (const sidewalk of referenceSidewalks) {
-      if (sidewalk.geometry && sidewalk.geometry.coordinates && sidewalk.geometry.coordinates.length > 1) {
+      // Only process valid LineString geometries
+      if (
+        sidewalk.geometry &&
+        sidewalk.geometry.type === 'LineString' &&
+        Array.isArray(sidewalk.geometry.coordinates) &&
+        sidewalk.geometry.coordinates.length > 1
+      ) {
         // GeoJSON LineString coordinates are [lng, lat], we need [lat, lng]
         const line = sidewalk.geometry.coordinates.map(([lng, lat]: [number, number]) => [lat, lng] as [number, number])
         lineStrings.push(line)
