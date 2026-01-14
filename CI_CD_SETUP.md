@@ -118,6 +118,16 @@ gcloud builds submit --config cloudbuild.yaml
 - **Better performance** - Faster builds, closer to deployment target
 - **Already working** - Existing trigger is configured and operational
 
+### Pull Request Testing
+
+When you create a pull request:
+1. GitHub Actions CI automatically runs
+2. Tests, type checking, and linting execute on both Node 18 and Node 20
+3. Coverage must meet 85% threshold
+4. All checks must pass before merging (recommended)
+
+**Note**: This test PR verifies the CI workflow runs correctly on pull requests.
+
 ---
 
-*Last updated: 2026-01-12*
+*Last updated: 2026-01-13*
