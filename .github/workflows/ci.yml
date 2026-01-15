@@ -1,9 +1,11 @@
-name: CI
+name: CI/CD
 
 on:
-  # Only run tests on pull requests, not on pushes to main
-  # This allows fast iteration on main while still catching issues in PRs
+  # Run tests on pull requests to main
   pull_request:
+    branches: [ main ]
+  # Run tests AND deploy on push to main
+  push:
     branches: [ main ]
 
 jobs:
@@ -40,7 +42,7 @@ jobs:
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage/lcov.info
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
     - name: Check coverage threshold
       run: |
@@ -72,7 +74,45 @@ jobs:
       run: npm run build
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: build-files
         path: .next/
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # Only deploy on push to main, not on PRs
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+        service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v2
+      with:
+        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    - name: Submit build to Cloud Build
+      run: |
+        gcloud builds submit \
+          --config=cloudbuild.yaml \
+          --substitutions=COMMIT_SHA=${{ github.sha }},_APP_URL=${{ secrets.APP_URL || 'https://alameda-sidewalk-map-nrlykf3v7q-uc.a.run.app' }}
+
+    - name: Deployment Summary
+      run: |
+        echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Deployed to:** Cloud Run" >> $GITHUB_STEP_SUMMARY

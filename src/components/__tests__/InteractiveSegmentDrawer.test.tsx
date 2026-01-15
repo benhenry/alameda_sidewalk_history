@@ -41,21 +41,22 @@ describe('InteractiveSegmentDrawer', () => {
       expect(screen.getByText('How to draw a sidewalk segment:')).toBeInTheDocument()
     })
 
-    expect(screen.getByText('Click on the map to add points along the sidewalk')).toBeInTheDocument()
-    expect(screen.getByText('Blue dashed lines show known sidewalk locations')).toBeInTheDocument()
-    expect(screen.getByText('Connect points to create a line representing the sidewalk segment')).toBeInTheDocument()
+    // Check for key instruction elements (text may be split across elements)
+    expect(screen.getByText(/Click directly on or very close to the blue dashed lines/i)).toBeInTheDocument()
+    expect(screen.getByText(/Blue dashed lines show actual sidewalk locations/i)).toBeInTheDocument()
   })
 
-  it('should show loading state initially', () => {
-    // Before mount, component shows loading
-    const { container } = render(
+  it('should show map container after mount', async () => {
+    render(
       <InteractiveSegmentDrawer
         onCoordinatesChange={mockOnCoordinatesChange}
       />
     )
 
-    // Initially shows loading div
-    expect(container.querySelector('.bg-gray-200')).toBeInTheDocument()
+    // After mount, map container should be present
+    await waitFor(() => {
+      expect(screen.getByTestId('map-container')).toBeInTheDocument()
+    })
   })
 
   it('should display coordinate count and status correctly', async () => {

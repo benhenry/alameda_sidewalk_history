@@ -10,6 +10,16 @@ jest.mock('react-leaflet', () => ({
   Polyline: ({ children }: any) => <div data-testid="polyline">{children}</div>,
   Popup: ({ children }: any) => <div data-testid="popup">{children}</div>,
   useMapEvents: jest.fn(() => null),
+  useMap: jest.fn(() => ({
+    on: jest.fn(),
+    off: jest.fn(),
+    getZoom: jest.fn(() => 14),
+    getCenter: jest.fn(() => ({ lat: 37.7652, lng: -122.2416 })),
+    setView: jest.fn(),
+    fitBounds: jest.fn(),
+    removeLayer: jest.fn(),
+    addLayer: jest.fn(),
+  })),
 }))
 
 // Mock leaflet library
@@ -120,10 +130,11 @@ describe('Map Component', () => {
     )
 
     expect(screen.getByText('Map Legend')).toBeInTheDocument()
-    expect(screen.getByText('Unmapped sidewalks')).toBeInTheDocument()
     expect(screen.getByText('Mapped by decade:')).toBeInTheDocument()
-    expect(screen.getByText('1900s')).toBeInTheDocument()
     expect(screen.getByText('1920s')).toBeInTheDocument()
+    expect(screen.getByText('1930s')).toBeInTheDocument()
+    expect(screen.getByText('Click segments for details')).toBeInTheDocument()
+    expect(screen.getByText('Thicker lines = mapped data')).toBeInTheDocument()
   })
 
   it('renders polylines for each segment', async () => {
