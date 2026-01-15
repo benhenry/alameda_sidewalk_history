@@ -59,7 +59,7 @@ export default function AutocompleteInput({
       const timer = setTimeout(() => debouncedSearch(value), 300) // Debounce
       return () => clearTimeout(timer)
     }
-  }, [value, debouncedSearch, userHasInteracted])
+  }, [value, debouncedSearch, userHasInteracted, lastSearchValue])
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
