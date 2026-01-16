@@ -1,133 +1,213 @@
 # CI/CD Setup
 
-## Deployment Pipeline
+## Overview
 
-This project uses **Google Cloud Build** for automated deployments.
+This project uses **GitHub Actions** to run tests on PRs and **Google Cloud Build** for deployment to Cloud Run.
 
-### How It Works
+### Pipeline Flow
 
-1. **Push to GitHub main branch**
-2. **Cloud Build trigger automatically starts** (trigger name: "CD")
-3. **Cloud Build executes** `cloudbuild.yaml`:
-   - Builds Docker image
-   - Pushes to Google Container Registry
-   - Deploys to Cloud Run
-4. **Production is live** at https://alameda-sidewalk-map-nrlykf3v7q-uc.a.run.app
-
-### Configuration Files
-
-- **`cloudbuild.yaml`** - Cloud Build configuration (primary CI/CD)
-- **`.github/workflows/ci.yml`** - Test workflow (runs only on pull requests)
-- **`.github/workflows/deploy.yml.disabled`** - Deprecated deployment workflow (disabled)
-
-### Testing Strategy
-
-**Tests run only on pull requests**, not on direct pushes to main. This allows:
-- Fast iteration when pushing to main
-- Code quality checks before merging PRs
-- Deployments proceed regardless of test status (deployments are independent)
-
-To run tests locally:
-```bash
-npm run test:ci        # Run all tests
-npm run test:coverage  # Check coverage (20%+ required, target: 90%)
-npm run typecheck      # TypeScript validation
-npm run lint           # Code linting
+```
+PR to main → GitHub Actions (test) → Merge → GitHub Actions (test + deploy) → Cloud Build → Cloud Run
 ```
 
-### Monitoring Deployments
+## GitHub Actions Workflow
 
-Check build status:
+The workflow (`.github/workflows/ci.yml`) runs:
+
+| Trigger | Jobs |
+|---------|------|
+| **Pull Request to main** | test, build |
+| **Push to main** | test, build, **deploy** |
+
+### Test Job
+- Runs on Node.js 18.x and 20.x
+- TypeScript type checking
+- ESLint linting
+- Jest tests with coverage (20% minimum threshold)
+
+### Build Job
+- Builds the Next.js application
+- Uploads build artifacts
+
+### Deploy Job (main branch only)
+- Authenticates to GCP via Workload Identity Federation
+- Submits build to Cloud Build
+- Cloud Build deploys to Cloud Run
+
+## GitHub Secrets Required
+
+| Secret | Description |
+|--------|-------------|
+| `GCP_PROJECT_ID` | Your GCP project ID (e.g., `alameda-sidewalks`) |
+| `GCP_SERVICE_ACCOUNT` | Service account email (e.g., `github-deployer@PROJECT.iam.gserviceaccount.com`) |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Format: `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/POOL/providers/PROVIDER` |
+
+## Workload Identity Federation Setup
+
+Workload Identity Federation allows GitHub Actions to authenticate to GCP without storing service account keys.
+
+### 1. Create Workload Identity Pool
+
+```bash
+gcloud iam workload-identity-pools create "github-actions" \
+  --location="global" \
+  --display-name="GitHub Actions Pool"
+```
+
+### 2. Create OIDC Provider
+
+```bash
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+  --location="global" \
+  --workload-identity-pool="github-actions" \
+  --display-name="GitHub Provider" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+  --attribute-condition="assertion.repository_owner == 'YOUR_GITHUB_USERNAME'" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+```
+
+### 3. Get Provider Resource Name
+
+```bash
+gcloud iam workload-identity-pools providers describe github-provider \
+  --workload-identity-pool="github-actions" \
+  --location="global" \
+  --format="value(name)"
+```
+
+This output is your `GCP_WORKLOAD_IDENTITY_PROVIDER` secret value.
+
+### 4. Grant Service Account Permissions
+
+```bash
+# Get project number
+PROJECT_NUMBER=$(gcloud projects describe $(gcloud config get-value project) --format="value(projectNumber)")
+
+# Allow GitHub to impersonate service account
+gcloud iam service-accounts add-iam-policy-binding "YOUR_SA@PROJECT.iam.gserviceaccount.com" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/github-actions/attribute.repository/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME"
+```
+
+### 5. Service Account Roles Required
+
+The service account needs these roles:
+
+```bash
+SA="your-sa@project.iam.gserviceaccount.com"
+PROJECT_ID="your-project-id"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA}" --role="roles/cloudbuild.builds.editor"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA}" --role="roles/storage.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA}" --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+  --member="serviceAccount:${SA}" --role="roles/iam.serviceAccountUser"
+```
+
+## Cloud Build Configuration
+
+The `cloudbuild.yaml` file configures:
+
+1. **Docker Build**: Builds the Next.js app container
+2. **Push to GCR**: Pushes image to Google Container Registry
+3. **Deploy to Cloud Run**: Updates the Cloud Run service
+
+### Key Environment Variables
+
+Set in `cloudbuild.yaml`:
+- `NEXTAUTH_URL` / `AUTH_URL`: Must be your custom domain (e.g., `https://alameda-sidewalks.com`)
+- `AUTH_TRUST_HOST=true`: Required for Cloud Run proxy environment
+- `PGHOST`: Cloud SQL Unix socket path (`/cloudsql/PROJECT:REGION:INSTANCE`)
+- Database credentials via Secret Manager
+
+### Cloud SQL Connection
+
+Cloud Run connects to Cloud SQL via Unix socket (not TCP):
+- **No SSL required** - Unix sockets are already secure
+- Add `--add-cloudsql-instances` to the deploy command
+- Set `PGHOST=/cloudsql/PROJECT_ID:REGION:INSTANCE_NAME`
+
+## Local Development
+
+```bash
+# Run tests
+npm run test:ci
+
+# Check coverage (20% minimum)
+npm run test:coverage
+
+# Type check
+npm run typecheck
+
+# Lint
+npm run lint
+
+# Build
+npm run build
+```
+
+## Monitoring
+
+### Check GitHub Actions
+https://github.com/YOUR_USERNAME/YOUR_REPO/actions
+
+### Check Cloud Build
 ```bash
 gcloud builds list --limit 5
+gcloud builds log BUILD_ID
 ```
 
-View build logs:
+### Check Cloud Run
 ```bash
-gcloud builds log <BUILD_ID>
-```
-
-Check Cloud Run service:
-```bash
-gcloud run services describe alameda-sidewalk-map --region us-central1
-```
-
-### Environment Configuration
-
-**Production environment variables** are set in `cloudbuild.yaml`:
-- Database connection via Cloud SQL Unix socket
-- OAuth URLs configured for production domain
-- All secrets pulled from Google Secret Manager
-
-### Secrets Management
-
-All sensitive values are stored in Google Secret Manager:
-- `auth-secret` - Auth.js secret key
-- `postgres-password` - Database password
-- `google-oauth-client-id` / `google-oauth-client-secret` - Google OAuth
-- `github-oauth-client-id` / `github-oauth-client-secret` - GitHub OAuth
-- Email provider secrets (SendGrid, Gmail, SMTP)
-
-View secrets:
-```bash
-gcloud secrets list
-```
-
-### Deployment Workflow
-
-```
-Local Development → Git Commit → Git Push to main → Cloud Build Trigger
-                                                            ↓
-                                                    Build Docker Image
-                                                            ↓
-                                                   Push to GCR
-                                                            ↓
-                                                   Deploy to Cloud Run
-                                                            ↓
-                                                   Production Live ✅
-```
-
-### Troubleshooting
-
-**Build failing?**
-```bash
-# Check recent builds
-gcloud builds list --limit 5
-
-# View specific build log
-gcloud builds log <BUILD_ID>
-```
-
-**Deployment not updating?**
-```bash
-# Check Cloud Run revision
+gcloud run services describe alameda-sidewalk-map --region=us-central1
 gcloud run revisions list --service=alameda-sidewalk-map --region=us-central1
 ```
 
-**Need to manually deploy?**
+### View Logs
 ```bash
-# Trigger build manually
-gcloud builds submit --config cloudbuild.yaml
+gcloud run services logs read alameda-sidewalk-map --region=us-central1 --limit=100
 ```
 
-### Why Cloud Build Instead of GitHub Actions?
+## Troubleshooting
 
-- **Native GCP integration** - Direct access to Secret Manager, Cloud Run, Cloud SQL
-- **No credential management** - Service account automatically configured
-- **Simpler configuration** - Single `cloudbuild.yaml` file
-- **Better performance** - Faster builds, closer to deployment target
-- **Already working** - Existing trigger is configured and operational
+### "Permission denied" on deploy
+Service account missing required roles. See "Service Account Roles Required" above.
 
-### Pull Request Testing
+### "Unable to acquire impersonated credentials"
+Workload Identity not configured correctly. Verify:
+1. Pool and provider exist
+2. Service account has `roles/iam.workloadIdentityUser` binding
+3. Attribute condition matches your repository
 
-When you create a pull request:
-1. GitHub Actions CI automatically runs
-2. Tests, type checking, and linting execute on both Node 18 and Node 20
-3. Coverage must meet 20% threshold (target: gradually increase to 90%+)
-4. All checks must pass before merging (recommended)
+### OAuth "redirect_uri_mismatch"
+1. Check `NEXTAUTH_URL` in Cloud Run env vars matches your domain
+2. Update Google OAuth credentials with correct redirect URI
 
-**Note**: CI verification complete - tests run successfully on PRs, deployments proceed independently on main.
+### PKCE "pkceCodeVerifier value could not be parsed"
+1. Ensure `AUTH_TRUST_HOST=true` is set
+2. Verify `NEXTAUTH_URL` and `AUTH_URL` point to your custom domain (not Cloud Run URL)
+3. URLs are hardcoded in `cloudbuild.yaml` (not using substitutions for reliability)
+
+### Database "SSL connection" errors
+Cloud SQL via Unix socket doesn't use SSL. Ensure `ssl: false` in database config when using `/cloudsql/...` host.
+
+### "run.services.setIamPolicy" permission denied
+This error occurs when using `--allow-unauthenticated` in `gcloud run deploy`. The flag tries to set an IAM policy to allow public access.
+
+**Solution**: Remove `--allow-unauthenticated` from `cloudbuild.yaml`. This setting persists on the Cloud Run service, so it only needs to be set once manually:
+```bash
+gcloud run services add-iam-policy-binding alameda-sidewalk-map \
+  --region=us-central1 \
+  --member="allUsers" \
+  --role="roles/run.invoker"
+```
 
 ---
 
-*Last updated: 2026-01-14*
+*Last updated: 2026-01-16*

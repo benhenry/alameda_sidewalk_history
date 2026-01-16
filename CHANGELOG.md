@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - CI/CD Pipeline & Production Deployment (2026-01-16)
+
+**GitHub Actions CI/CD Pipeline:**
+- Configured `.github/workflows/ci.yml` with test, build, and deploy jobs
+- PR trigger runs test + build jobs
+- Push to main triggers test + build + deploy jobs
+- Workload Identity Federation for keyless GCP authentication
+- Cloud Build triggered from GitHub Actions for deployment
+
+**Workload Identity Federation Setup:**
+- Created `github-actions` workload identity pool
+- Created `github-provider` OIDC provider with repository attribute condition
+- Granted `roles/iam.workloadIdentityUser` to service account
+- Service account roles: `cloudbuild.builds.editor`, `storage.admin`, `run.admin`, `iam.serviceAccountUser`
+
+**Auth.js Cloud Run Configuration:**
+- `AUTH_TRUST_HOST=true` for proxy environment (required for PKCE)
+- `NEXTAUTH_URL` and `AUTH_URL` point to custom domain, not Cloud Run URL
+- `allowDangerousEmailAccountLinking: true` for OAuth account linking
+- SSL disabled for Cloud SQL Unix socket connections (`/cloudsql/...`)
+
+**Test Infrastructure Fixes:**
+- Fixed react-leaflet mock causing infinite re-renders
+  - Made `useMapEvents` a no-op (no auto-firing events)
+  - Made `useMap` return stable mock object reference
+  - Added `CircleMarker` mock component
+- All 167 tests passing in ~1 second
+
+**Documentation:**
+- Created comprehensive `CI_CD_SETUP.md` with:
+  - Workload Identity Federation setup instructions
+  - Service account role requirements
+  - Troubleshooting guide for common OAuth/Cloud Run issues
+- Updated `TODO.md` marking P0-P3 as completed
+- Updated `CLAUDE.md` with OAuth auth flow, CI/CD details, troubleshooting
+- Updated `ERRORS.md` with resolved OAuth issues
+
+**Files Modified:**
+- `.github/workflows/ci.yml` - Added deploy job with WIF authentication
+- `__mocks__/react-leaflet.js` - Fixed infinite re-render issues
+- `src/auth.ts` - Added `trustHost`, `allowDangerousEmailAccountLinking`, Unix socket SSL handling
+- `cloudbuild.yaml` - Fixed `_APP_URL` substitution for custom domain
+- `src/components/__tests__/Map.test.tsx` - Updated for new mock structure
+
+---
+
 ### Added - OAuth Authentication Migration (2025-12-25)
 
 **MAJOR CHANGE: Replaced custom password authentication with OAuth (Google + GitHub)**
