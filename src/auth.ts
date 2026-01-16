@@ -33,10 +33,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      // Allow linking Google account to existing user with same email
+      allowDangerousEmailAccountLinking: true,
     }),
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      // Allow linking GitHub account to existing user with same email
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   pages: {
@@ -65,9 +69,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (existingUser.rows.length > 0) {
           // User exists - the adapter will link the account
-          console.log(`Linking ${account?.provider} account to existing user:`, user.email)
+          // The role is preserved because we're linking, not creating
+          const role = existingUser.rows[0].role
+          console.log(`Linking ${account?.provider} account to existing user:`, user.email, `(role: ${role})`)
         } else {
-          // New user - will be created by adapter
+          // New user - will be created by adapter with default 'user' role
           console.log(`Creating new user from ${account?.provider}:`, user.email)
         }
 
