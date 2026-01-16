@@ -108,7 +108,7 @@ jobs:
       run: |
         gcloud builds submit \
           --config=cloudbuild.yaml \
-          --substitutions=COMMIT_SHA=${{ github.sha }},_APP_URL=${{ secrets.APP_URL || 'https://alameda-sidewalk-map-nrlykf3v7q-uc.a.run.app' }}
+          --substitutions=COMMIT_SHA=${{ github.sha }}
 
     - name: Deployment Summary
       run: |
