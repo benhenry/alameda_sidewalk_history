@@ -24,6 +24,7 @@ const pool = new Pool(
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PostgresAdapter(pool),
+  trustHost: true,  // Required for Cloud Run / proxy environments
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
