@@ -6,19 +6,23 @@ import { Pool } from "pg"
 
 // Create PostgreSQL connection pool for Auth.js
 // Support both DATABASE_URL (development) and individual PG* variables (production)
+// Note: Unix socket connections (/cloudsql/...) don't use SSL
+const isUnixSocket = process.env.PGHOST?.startsWith('/');
 const pool = new Pool(
   process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        ssl: process.env.NODE_ENV === 'production' && !process.env.DATABASE_URL.includes('/cloudsql/')
+          ? { rejectUnauthorized: false }
+          : false,
       }
     : {
         host: process.env.PGHOST,
-        port: parseInt(process.env.PGPORT || '5432'),
+        port: isUnixSocket ? undefined : parseInt(process.env.PGPORT || '5432'),
         database: process.env.PGDATABASE,
         user: process.env.PGUSER,
         password: process.env.PGPASSWORD,
-        ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+        ssl: false,  // Unix socket connections don't use SSL
       }
 )
 
