@@ -479,11 +479,12 @@ export async function getNearbyReferenceSidewalks(
 
 export async function snapToNearestSidewalk(
   point: [number, number]
-): Promise<{ snapped: [number, number]; referenceId: string; distance: number } | null> {
+): Promise<{ snapped: [number, number]; referenceId: string; street: string | null; distance: number } | null> {
   return withDatabase(async (client) => {
     const result = await client.query(
       `SELECT
         id,
+        street,
         ST_Y(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lat,
         ST_X(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lng,
         ST_Distance(
@@ -508,6 +509,7 @@ export async function snapToNearestSidewalk(
     return {
       snapped: [row.lat, row.lng],
       referenceId: row.id,
+      street: row.street || null,
       distance: row.distance
     }
   })

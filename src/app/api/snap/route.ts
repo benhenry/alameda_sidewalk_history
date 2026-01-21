@@ -23,6 +23,7 @@ export const dynamic = 'force-dynamic'
  *         original: [lat, lng],
  *         snapped: [lat, lng] | null,
  *         referenceId: string,
+ *         street: string | null,
  *         distance: number
  *       }
  *     ]
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
           original: coord,
           snapped: result.snapped,
           referenceId: result.referenceId,
+          street: result.street,
           distance: Math.round(result.distance * 100) / 100 // Round to 2 decimals
         })
       } else {

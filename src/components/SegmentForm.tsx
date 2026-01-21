@@ -1,13 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import dynamic from 'next/dynamic'
 import { SidewalkSegment } from '@/types/sidewalk'
-import { Save, X, MapPin, Plus, Minus, AlertCircle } from 'lucide-react'
+import { Save, X, Plus, Minus, MapPin, Loader2 } from 'lucide-react'
 import { useSidewalkData } from '@/lib/sidewalk-context'
-import { normalizeStreetName, normalizeBlockNumber, validateStreetName, validateBlockNumber } from '@/lib/street-validation'
 import AutocompleteInput from './AutocompleteInput'
-import GooglePlacesInput from './GooglePlacesInput'
 
 // Dynamically import to avoid SSR issues with Leaflet
 const InteractiveSegmentDrawer = dynamic(() => import('./InteractiveSegmentDrawer'), {
@@ -29,84 +27,90 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
   const [formData, setFormData] = useState({
     contractor: segment?.contractor || '',
     year: segment?.year || new Date().getFullYear(),
-    street: segment?.street || '',
-    block: segment?.block || '',
     notes: segment?.notes || '',
     specialMarks: segment?.specialMarks || [],
     coordinates: segment?.coordinates || []
   })
 
+  // Inferred location data (auto-filled from coordinates)
+  const [inferredStreet, setInferredStreet] = useState<string | null>(segment?.street || null)
+  const [inferredBlock, setInferredBlock] = useState<string | null>(segment?.block || null)
+  const [isGeocodingBlock, setIsGeocodingBlock] = useState(false)
+
   const [newSpecialMark, setNewSpecialMark] = useState('')
   const { sidewalkData, isLoading: loadingSidewalks } = useSidewalkData()
-  const [streetValidation, setStreetValidation] = useState<{ isValid: boolean; suggestion?: string; message?: string; isWarning?: boolean }>({ isValid: true })
-  const [blockValidation, setBlockValidation] = useState<{ isValid: boolean; message?: string }>({ isValid: true })
-  
+
   // Autocomplete state
   const [contractorSuggestions, setContractorSuggestions] = useState<string[]>([])
-  const [blockSuggestions, setBlockSuggestions] = useState<string[]>([])
   const [contractorLoading, setContractorLoading] = useState(false)
-  const [blockLoading, setBlockLoading] = useState(false)
-  
-  // Track last searched values to prevent unnecessary API calls
-  // Initialize with current values to prevent initial searches
   const [lastContractorSearch, setLastContractorSearch] = useState(formData.contractor || '')
-  const [lastBlockSearch, setLastBlockSearch] = useState(`${formData.block || ''}|${formData.street || ''}`)
-  
-  // Use ref to get current street value without triggering re-renders
-  const currentStreetRef = useRef(formData.street)
-  
-  // Update ref when street changes
-  useEffect(() => {
-    currentStreetRef.current = formData.street
-  }, [formData.street])
 
-  const handleStreetChange = (street: string) => {
-    // Update the street value without normalization during typing
-    setFormData(prev => ({ ...prev, street }))
-  }
+  // Handle street detection from snap API
+  const handleStreetDetected = useCallback((street: string | null) => {
+    if (street && !inferredStreet) {
+      setInferredStreet(street)
+    }
+  }, [inferredStreet])
 
-  const handleStreetBlur = () => {
-    // Normalize and validate only when field loses focus
-    const normalized = normalizeStreetName(formData.street)
-    setFormData(prev => ({ ...prev, street: normalized }))
-    
-    const validation = validateStreetName(normalized)
-    setStreetValidation(validation)
-  }
+  // Reverse geocode to get block when coordinates change
+  const reverseGeocodeForBlock = useCallback(async (coords: [number, number][]) => {
+    if (coords.length === 0) return
 
-  const handleBlockChange = (block: string) => {
-    const normalized = normalizeBlockNumber(block)
-    setFormData(prev => ({ ...prev, block: normalized }))
-    
-    // Validate block number
-    const validation = validateBlockNumber(normalized)
-    setBlockValidation(validation)
-  }
+    // Use the first coordinate for reverse geocoding
+    const [lat, lng] = coords[0]
+
+    setIsGeocodingBlock(true)
+    try {
+      const response = await fetch('/api/reverse-geocode', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        if (data.block) {
+          setInferredBlock(data.block)
+        }
+        // Also use street from reverse geocode if we didn't get one from snap
+        if (data.street && !inferredStreet) {
+          setInferredStreet(data.street)
+        }
+      }
+    } catch (error) {
+      console.error('Reverse geocode error:', error)
+    } finally {
+      setIsGeocodingBlock(false)
+    }
+  }, [inferredStreet])
+
+  // Handle coordinate changes
+  const handleCoordinatesChange = useCallback((coords: [number, number][]) => {
+    setFormData(prev => ({ ...prev, coordinates: coords }))
+
+    // Reverse geocode for block if we have coordinates
+    if (coords.length > 0 && !inferredBlock) {
+      reverseGeocodeForBlock(coords)
+    }
+  }, [inferredBlock, reverseGeocodeForBlock])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!formData.contractor || !formData.street || !formData.block || formData.coordinates.length === 0) {
-      alert('Please fill in all required fields and add at least one coordinate')
+
+    if (!formData.contractor || formData.coordinates.length < 2) {
+      alert('Please fill in contractor and add at least 2 points on the map')
       return
     }
 
-    // Normalize street name before validation and submission
-    const normalizedStreet = normalizeStreetName(formData.street)
-    setFormData(prev => ({ ...prev, street: normalizedStreet }))
-
-    // Re-validate before submitting
-    const streetValidationResult = validateStreetName(normalizedStreet)
-    const blockValidationResult = validateBlockNumber(formData.block)
-    
-    if (!streetValidationResult.isValid || !blockValidationResult.isValid) {
-      alert('Please fix the validation errors before submitting.')
+    if (!inferredStreet) {
+      alert('Could not determine street name. Please try drawing the segment again closer to the reference sidewalks.')
       return
     }
 
     onSave({
       ...formData,
-      street: normalizedStreet,
+      street: inferredStreet,
+      block: inferredBlock || 'Unknown',
       coordinates: formData.coordinates.filter(coord => coord[0] !== 0 && coord[1] !== 0)
     })
   }
@@ -155,42 +159,6 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
     setContractorLoading(false)
   }, [lastContractorSearch])
 
-  const searchBlocks = useCallback(async (query: string) => {
-    if (!query || query.length < 1) {
-      setBlockSuggestions([])
-      setLastBlockSearch('')
-      return
-    }
-
-    // Get current street value from ref to avoid dependency issues
-    const currentStreet = currentStreetRef.current
-    
-    // Create a search key that includes both query and street for comparison
-    const searchKey = `${query}|${currentStreet || ''}`
-    
-    // Only search if the query or street has actually changed
-    if (searchKey === lastBlockSearch) {
-      return
-    }
-
-    setLastBlockSearch(searchKey)
-    setBlockLoading(true)
-    try {
-      const params = new URLSearchParams({ q: query })
-      if (currentStreet) {
-        params.append('street', currentStreet)
-      }
-      const response = await fetch(`/api/autocomplete/blocks?${params}`)
-      if (response.ok) {
-        const suggestions = await response.json()
-        setBlockSuggestions(suggestions)
-      }
-    } catch (error) {
-      console.error('Error fetching block suggestions:', error)
-    }
-    setBlockLoading(false)
-  }, [lastBlockSearch])
-
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1200]">
@@ -208,6 +176,54 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Segment Location - FIRST so street/block are auto-detected */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              <MapPin className="h-4 w-4 inline mr-1" />
+              Draw Segment on Map *
+            </label>
+            <p className="text-sm text-gray-500 mb-2">
+              Click on the map to draw your sidewalk segment. Street and block will be detected automatically.
+            </p>
+            {loadingSidewalks ? (
+              <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+                <span className="text-gray-500">Loading sidewalk data...</span>
+              </div>
+            ) : (
+              <InteractiveSegmentDrawer
+                onCoordinatesChange={handleCoordinatesChange}
+                onStreetDetected={handleStreetDetected}
+                initialCoordinates={formData.coordinates}
+                sidewalkData={sidewalkData}
+              />
+            )}
+          </div>
+
+          {/* Auto-detected location info */}
+          {(inferredStreet || inferredBlock || formData.coordinates.length > 0) && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <h4 className="text-sm font-medium text-green-800 mb-2">Detected Location</h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-green-700 font-medium">Street:</span>{' '}
+                  <span className="text-green-900">
+                    {inferredStreet || <span className="text-gray-400 italic">Draw on map to detect</span>}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-green-700 font-medium">Block:</span>{' '}
+                  {isGeocodingBlock ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-green-600" />
+                  ) : (
+                    <span className="text-green-900">
+                      {inferredBlock || <span className="text-gray-400 italic">Detecting...</span>}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -241,73 +257,6 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Street *
-              </label>
-              <GooglePlacesInput
-                value={formData.street}
-                onChange={handleStreetChange}
-                onBlur={handleStreetBlur}
-                placeholder="e.g., Park Street, Marina Village Pkwy"
-                required
-                className={`p-2 border rounded-md focus:ring-2 ${
-                  streetValidation.isValid 
-                    ? streetValidation.isWarning
-                      ? 'border-yellow-300 focus:ring-yellow-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                    : 'border-red-300 focus:ring-red-500'
-                }`}
-              />
-              {(!streetValidation.isValid || streetValidation.isWarning) && streetValidation.message && (
-                <div className={`mt-1 flex items-center gap-1 text-sm ${
-                  streetValidation.isValid && streetValidation.isWarning
-                    ? 'text-yellow-600'
-                    : 'text-red-600'
-                }`}>
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{streetValidation.message}</span>
-                </div>
-              )}
-              {streetValidation.suggestion && (
-                <button
-                  type="button"
-                  onClick={() => handleStreetChange(streetValidation.suggestion!)}
-                  className="mt-1 text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Use: {streetValidation.suggestion}
-                </button>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Block *
-              </label>
-              <AutocompleteInput
-                value={formData.block}
-                onChange={handleBlockChange}
-                placeholder="Enter block number (e.g., 2300)"
-                required
-                className={`p-2 border rounded-md focus:ring-2 ${
-                  blockValidation.isValid 
-                    ? 'border-gray-300 focus:ring-blue-500' 
-                    : 'border-red-300 focus:ring-red-500'
-                }`}
-                suggestions={blockSuggestions}
-                loading={blockLoading}
-                onSearch={searchBlocks}
-              />
-              {!blockValidation.isValid && (
-                <div className="mt-1 flex items-center gap-1 text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>{blockValidation.message}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Notes
@@ -317,6 +266,7 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
               onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
               className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
               rows={3}
+              placeholder="Any additional notes about this sidewalk segment..."
             />
           </div>
 
@@ -355,23 +305,6 @@ export default function SegmentForm({ segment, onSave, onCancel }: SegmentFormPr
                 </button>
               </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Segment Location *
-            </label>
-            {loadingSidewalks ? (
-              <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                <span className="text-gray-500">Loading sidewalk data...</span>
-              </div>
-            ) : (
-              <InteractiveSegmentDrawer
-                onCoordinatesChange={(coords) => setFormData(prev => ({ ...prev, coordinates: coords }))}
-                initialCoordinates={formData.coordinates}
-                sidewalkData={sidewalkData}
-              />
-            )}
           </div>
 
           <div className="flex gap-4 pt-4">

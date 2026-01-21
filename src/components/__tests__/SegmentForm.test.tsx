@@ -6,9 +6,17 @@ import { SidewalkProvider } from '@/lib/sidewalk-context'
 
 // Mock the InteractiveSegmentDrawer component
 jest.mock('../InteractiveSegmentDrawer', () => {
-  return function MockInteractiveSegmentDrawer({ onCoordinatesChange }: any) {
+  return function MockInteractiveSegmentDrawer({ onCoordinatesChange, onStreetDetected }: any) {
     return (
-      <div data-testid="map-container" onClick={() => onCoordinatesChange([[37.7652, -122.2416]])}>
+      <div
+        data-testid="map-container"
+        onClick={() => {
+          onCoordinatesChange([[37.7652, -122.2416], [37.7653, -122.2417]])
+          if (onStreetDetected) {
+            onStreetDetected('Park Street')
+          }
+        }}
+      >
         Mock Interactive Map
       </div>
     )
@@ -88,9 +96,10 @@ describe('SegmentForm Component', () => {
 
     expect(screen.getByDisplayValue('Smith Construction Co.')).toBeInTheDocument()
     expect(screen.getByDisplayValue('1925')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('Park Street')).toBeInTheDocument()
-    expect(screen.getByDisplayValue('1400')).toBeInTheDocument()
     expect(screen.getByDisplayValue('Well-preserved contractor stamp')).toBeInTheDocument()
+    // Street and Block are now auto-detected, shown as read-only info
+    expect(screen.getByText('Park Street')).toBeInTheDocument()
+    expect(screen.getByText('1400')).toBeInTheDocument()
   })
 
   it('displays existing special marks', () => {
@@ -138,7 +147,7 @@ describe('SegmentForm Component', () => {
 
   it('prevents submission with missing required fields', async () => {
     const alertSpy = jest.spyOn(window, 'alert').mockImplementation(() => {})
-    
+
     renderWithProvider(
       <SegmentForm
         onSave={mockOnSave}
@@ -152,9 +161,9 @@ describe('SegmentForm Component', () => {
       fireEvent.submit(form)
     }
 
-    expect(alertSpy).toHaveBeenCalledWith('Please fill in all required fields and add at least one coordinate')
+    expect(alertSpy).toHaveBeenCalledWith('Please fill in contractor and add at least 2 points on the map')
     expect(mockOnSave).not.toHaveBeenCalled()
-    
+
     alertSpy.mockRestore()
   })
 
@@ -188,7 +197,7 @@ describe('SegmentForm Component', () => {
       />
     )
 
-    expect(screen.getByText('Segment Location *')).toBeInTheDocument()
+    expect(screen.getByText('Draw Segment on Map *')).toBeInTheDocument()
 
     // Wait for sidewalk data to load
     await waitFor(() => {
@@ -219,10 +228,9 @@ describe('SegmentForm Component', () => {
 
     expect(screen.getByText('Contractor *')).toBeInTheDocument()
     expect(screen.getByText('Year *')).toBeInTheDocument()
-    expect(screen.getByText('Street *')).toBeInTheDocument()
-    expect(screen.getByText('Block *')).toBeInTheDocument()
     expect(screen.getByText('Notes')).toBeInTheDocument()
     expect(screen.getByText('Special Marks')).toBeInTheDocument()
-    expect(screen.getByText('Segment Location *')).toBeInTheDocument()
+    expect(screen.getByText('Draw Segment on Map *')).toBeInTheDocument()
+    // Street and Block are now auto-detected, not manual input labels
   })
 })

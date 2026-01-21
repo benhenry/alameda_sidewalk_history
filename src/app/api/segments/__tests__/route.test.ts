@@ -1,6 +1,12 @@
 import { GET, POST } from '../route'
 import { NextRequest } from 'next/server'
 
+// Mock @/auth before importing route (to avoid next-auth ESM issues)
+const mockAuth = jest.fn()
+jest.mock('@/auth', () => ({
+  auth: () => mockAuth(),
+}))
+
 // Mock the database and validation modules
 jest.mock('@/lib/database', () => ({
   getAllSegments: jest.fn(),
@@ -108,6 +114,11 @@ describe('/api/segments POST', () => {
   })
 
   it('should create segment successfully with valid data and coordinates', async () => {
+    // Mock authenticated session
+    mockAuth.mockResolvedValue({
+      user: { id: 'test-user-id', email: 'test@example.com' }
+    })
+
     const mockSegmentData = {
       coordinates: [[37.7652, -122.2416], [37.7660, -122.2420]],
       contractor: 'Smith Construction Co.',
@@ -132,9 +143,6 @@ describe('/api/segments POST', () => {
     const request = new NextRequest('http://localhost:3000/api/segments', {
       method: 'POST',
       body: JSON.stringify(mockSegmentData),
-      headers: {
-        'x-user-id': 'test-user-id',
-      },
     })
 
     const response = await POST(request)
@@ -160,7 +168,34 @@ describe('/api/segments POST', () => {
     })
   })
 
+  it('should return 401 if not authenticated', async () => {
+    // Mock no session
+    mockAuth.mockResolvedValue(null)
+
+    const request = new NextRequest('http://localhost:3000/api/segments', {
+      method: 'POST',
+      body: JSON.stringify({
+        coordinates: [[37.7652, -122.2416]],
+        contractor: 'Test',
+        year: 2020,
+        street: 'Test St',
+        block: '100',
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(401)
+    const data = await response.json()
+    expect(data.error).toBe('Authentication required')
+  })
+
   it('should return 400 if missing required fields', async () => {
+    // Mock authenticated session
+    mockAuth.mockResolvedValue({
+      user: { id: 'test-user-id', email: 'test@example.com' }
+    })
+
     const request = new NextRequest('http://localhost:3000/api/segments', {
       method: 'POST',
       body: JSON.stringify({

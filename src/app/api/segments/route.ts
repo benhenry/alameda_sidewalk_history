@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllSegments, createSegment, updateContractorStats, parseCoordinates, stringifyCoordinates, parseSpecialMarks, stringifySpecialMarks } from '@/lib/database'
-import { SidewalkSegment } from '@/types/sidewalk'
-import { v4 as uuidv4 } from 'uuid'
+import { getAllSegments, createSegment, updateContractorStats } from '@/lib/database'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,6 +36,12 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const body = await request.json()
     const { coordinates, contractor, year, street, block, notes, specialMarks } = body
 
@@ -48,9 +53,6 @@ export async function POST(request: NextRequest) {
     // The InteractiveSegmentDrawer ensures all coordinates are snapped to reference sidewalks
     // No additional validation needed here
 
-    // Get user ID from middleware-set header
-    const userId = request.headers.get('x-user-id')
-
     // Create the segment using the database abstraction
     const newSegment = await createSegment({
       coordinates,
@@ -60,7 +62,7 @@ export async function POST(request: NextRequest) {
       block,
       notes: notes || undefined,
       specialMarks,
-      createdBy: userId || undefined,
+      createdBy: session.user.id,
       status: 'pending'
     })
 

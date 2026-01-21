@@ -7,6 +7,7 @@ import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
 
 interface InteractiveSegmentDrawerProps {
   onCoordinatesChange: (coordinates: [number, number][]) => void
+  onStreetDetected?: (street: string | null) => void
   initialCoordinates?: [number, number][]
   sidewalkData?: [number, number][][]  // Array of LineStrings
 }
@@ -16,11 +17,13 @@ const ALAMEDA_CENTER: [number, number] = [37.7652, -122.2416]
 
 function DrawingEvents({
   onCoordinatesChange,
+  onStreetDetected,
   coordinates,
   setCoordinates,
   sidewalkData
 }: {
   onCoordinatesChange: (coords: [number, number][]) => void
+  onStreetDetected?: (street: string | null) => void
   coordinates: [number, number][]
   setCoordinates: (coords: [number, number][]) => void
   sidewalkData?: [number, number][][]
@@ -28,7 +31,7 @@ function DrawingEvents({
   const [snapping, setSnapping] = useState(false)
 
   // API-based snapping using PostGIS ST_ClosestPoint
-  const snapCoordinate = async (lat: number, lng: number): Promise<[number, number] | null> => {
+  const snapCoordinate = async (lat: number, lng: number): Promise<{ snapped: [number, number]; street: string | null } | null> => {
     try {
       const response = await fetch('/api/snap', {
         method: 'POST',
@@ -47,7 +50,10 @@ function DrawingEvents({
 
       // Check if snapping was successful
       if (data.metadata && data.metadata[0] && data.metadata[0].snapped) {
-        return data.metadata[0].snapped as [number, number]
+        return {
+          snapped: data.metadata[0].snapped as [number, number],
+          street: data.metadata[0].street || null
+        }
       }
 
       return null
@@ -66,19 +72,24 @@ function DrawingEvents({
       setSnapping(true)
       try {
         // Try to snap to nearest sidewalk using PostGIS
-        const snappedCoord = await snapCoordinate(clickCoord[0], clickCoord[1])
+        const result = await snapCoordinate(clickCoord[0], clickCoord[1])
 
         // Require snapping when sidewalk data is available
-        if (sidewalkData && sidewalkData.length > 0 && !snappedCoord) {
+        if (sidewalkData && sidewalkData.length > 0 && !result) {
           alert('No nearby sidewalk found. Please click closer to the blue reference lines (within 50 meters of actual sidewalk locations).')
           return
         }
 
-        const finalCoord = snappedCoord || clickCoord
+        const finalCoord = result?.snapped || clickCoord
 
         const updatedCoords = [...coordinates, finalCoord]
         setCoordinates(updatedCoords)
         onCoordinatesChange(updatedCoords)
+
+        // Notify parent about detected street
+        if (result?.street && onStreetDetected) {
+          onStreetDetected(result.street)
+        }
       } finally {
         setSnapping(false)
       }
@@ -242,6 +253,7 @@ function MapController({ searchLat, searchLng }: { searchLat?: number; searchLng
 
 export default function InteractiveSegmentDrawer({
   onCoordinatesChange,
+  onStreetDetected,
   initialCoordinates = [],
   sidewalkData
 }: InteractiveSegmentDrawerProps) {
@@ -316,8 +328,9 @@ export default function InteractiveSegmentDrawer({
           <SidewalkOverlay sidewalkData={sidewalkData} />
           
           {/* Drawing events */}
-          <DrawingEvents 
+          <DrawingEvents
             onCoordinatesChange={onCoordinatesChange}
+            onStreetDetected={onStreetDetected}
             coordinates={coordinates}
             setCoordinates={setCoordinates}
             sidewalkData={sidewalkData}

@@ -180,7 +180,7 @@ export async function getNearbyReferenceSidewalks(
 
 export async function snapToNearestSidewalk(
   point: [number, number]
-): Promise<{ snapped: [number, number]; referenceId: string; distance: number } | null> {
+): Promise<{ snapped: [number, number]; referenceId: string; street: string | null; distance: number } | null> {
   const dbModule = await getDbModule()
   if ('snapToNearestSidewalk' in dbModule) {
     return dbModule.snapToNearestSidewalk(point)

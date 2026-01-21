@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createPhoto, getPhotosBySegmentId } from '@/lib/database'
 import { uploadFile as storageUploadFile } from '@/lib/storage'
-import { v4 as uuidv4 } from 'uuid'
-import path from 'path'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File
     const sidewalkSegmentId = formData.get('sidewalkSegmentId') as string
@@ -42,9 +47,6 @@ export async function POST(request: NextRequest) {
     // Upload file using storage service (handles local vs cloud storage)
     const uploadResult = await storageUploadFile(file, file.name, sidewalkSegmentId)
 
-    // Get user ID from middleware-set header
-    const userId = request.headers.get('x-user-id')
-
     // Save to database
     const photo = await createPhoto({
       sidewalkSegmentId,
@@ -53,7 +55,7 @@ export async function POST(request: NextRequest) {
       mimetype: file.type,
       size: file.size,
       storageUrl: uploadResult.url,
-      uploadedBy: userId || undefined
+      uploadedBy: session.user.id
     })
 
     return NextResponse.json({

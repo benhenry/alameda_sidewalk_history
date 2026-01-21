@@ -29,18 +29,13 @@ export default function ContributeModal({
     try {
       const url = selectedSegment ? `/api/segments/${selectedSegment.id}` : '/api/segments'
       const method = selectedSegment ? 'PUT' : 'POST'
-      
-      const token = typeof document !== 'undefined' ? document.cookie
-        .split('; ')
-        .find(row => row.startsWith('auth-token='))
-        ?.split('=')[1] : null
 
       const response = await fetch(url, {
         method,
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+        headers: {
+          'Content-Type': 'application/json'
         },
+        credentials: 'include', // Send Auth.js session cookie
         body: JSON.stringify(segmentData)
       })
 
