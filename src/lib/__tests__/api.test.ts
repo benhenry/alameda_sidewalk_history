@@ -1,13 +1,8 @@
-import { getAuthHeaders, authenticatedFetch, handleApiError } from '../api'
-import Cookies from 'js-cookie'
+import { authenticatedFetch, handleApiError } from '../api'
 
 // Mock fetch
 global.fetch = jest.fn()
 const mockFetch = global.fetch as jest.MockedFunction<typeof fetch>
-
-// Mock js-cookie
-jest.mock('js-cookie')
-const mockCookies = Cookies as jest.Mocked<typeof Cookies>
 
 // Mock window.location
 delete (window as any).location
@@ -19,30 +14,11 @@ global.alert = jest.fn()
 describe('api utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-  })
-
-  describe('getAuthHeaders', () => {
-    it('should return Authorization header when token exists', () => {
-      mockCookies.get.mockReturnValue('test-token' as any)
-
-      const headers = getAuthHeaders()
-
-      expect(headers).toEqual({ 'Authorization': 'Bearer test-token' })
-      expect(Cookies.get).toHaveBeenCalledWith('auth-token')
-    })
-
-    it('should return empty object when no token', () => {
-      mockCookies.get.mockReturnValue(undefined as any)
-
-      const headers = getAuthHeaders()
-
-      expect(headers).toEqual({})
-    })
+    window.location.href = ''
   })
 
   describe('authenticatedFetch', () => {
-    it('should make fetch request with auth headers', async () => {
-      mockCookies.get.mockReturnValue('test-token' as any)
+    it('should make fetch request with credentials include', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true })
@@ -52,31 +28,14 @@ describe('api utilities', () => {
 
       expect(fetch).toHaveBeenCalledWith('/test', {
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-token'
-        }
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
       })
       expect(response).toBeDefined()
     })
 
-    it('should make fetch request without auth when no token', async () => {
-      mockCookies.get.mockReturnValue(undefined as any)
-      mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: jest.fn().mockResolvedValue({ success: true })
-      } as any)
-
-      await authenticatedFetch('/test')
-
-      expect(fetch).toHaveBeenCalledWith('/test', {
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-    })
-
     it('should merge custom headers', async () => {
-      mockCookies.get.mockReturnValue('test-token' as any)
       mockFetch.mockResolvedValueOnce({
         ok: true,
         json: jest.fn().mockResolvedValue({ success: true })
@@ -94,10 +53,10 @@ describe('api utilities', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-token',
           'Custom-Header': 'custom-value'
         },
-        body: JSON.stringify({ data: 'test' })
+        body: JSON.stringify({ data: 'test' }),
+        credentials: 'include'
       })
     })
   })
@@ -108,7 +67,6 @@ describe('api utilities', () => {
 
       handleApiError(response)
 
-      expect(Cookies.remove).toHaveBeenCalledWith('auth-token')
       expect(window.location.href).toBe('/?auth=required')
     })
 

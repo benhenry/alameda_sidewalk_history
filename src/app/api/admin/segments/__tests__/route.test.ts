@@ -1,6 +1,12 @@
 import { GET, PATCH } from '../route'
 import { NextRequest } from 'next/server'
 
+// Mock @/auth before importing route
+const mockAuth = jest.fn()
+jest.mock('@/auth', () => ({
+  auth: () => mockAuth(),
+}))
+
 // Mock the database abstraction layer
 jest.mock('@/lib/database', () => ({
   getAdminSegments: jest.fn(),
@@ -16,6 +22,11 @@ describe('/api/admin/segments GET', () => {
   })
 
   it('should return pending segments for admin', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const mockPendingSegments = [
       {
         id: '1',
@@ -36,12 +47,8 @@ describe('/api/admin/segments GET', () => {
 
     ;(getAdminSegments as jest.Mock).mockResolvedValue(mockPendingSegments)
 
-    const request = new NextRequest('http://localhost:3000/api/admin/segments?status=pending', {
-      headers: {
-        'x-user-role': 'admin',
-      }
-    })
-    
+    const request = new NextRequest('http://localhost:3000/api/admin/segments?status=pending')
+
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -58,6 +65,11 @@ describe('/api/admin/segments GET', () => {
   })
 
   it('should return all segments when no status filter', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const mockAllSegments = [
       {
         id: '1',
@@ -80,12 +92,8 @@ describe('/api/admin/segments GET', () => {
 
     ;(getAdminSegments as jest.Mock).mockResolvedValue(mockAllSegments)
 
-    const request = new NextRequest('http://localhost:3000/api/admin/segments', {
-      headers: {
-        'x-user-role': 'admin',
-      }
-    })
-    
+    const request = new NextRequest('http://localhost:3000/api/admin/segments')
+
     const response = await GET(request)
 
     expect(response.status).toBe(200)
@@ -101,29 +109,45 @@ describe('/api/admin/segments GET', () => {
   })
 
   it('should reject non-admin requests', async () => {
-    const request = new NextRequest('http://localhost:3000/api/admin/segments', {
-      headers: {
-        'x-user-role': 'user', // Not admin
-      }
+    // Mock non-admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'user-123', email: 'user@example.com', role: 'user' }
     })
-    
+
+    const request = new NextRequest('http://localhost:3000/api/admin/segments')
+
     const response = await GET(request)
 
     expect(response.status).toBe(403)
 
     const data = await response.json()
-    expect(data.error).toBe('Unauthorized')
+    expect(data.error).toBe('Admin access required')
+  })
+
+  it('should reject unauthenticated requests', async () => {
+    // Mock no session
+    mockAuth.mockResolvedValue(null)
+
+    const request = new NextRequest('http://localhost:3000/api/admin/segments')
+
+    const response = await GET(request)
+
+    expect(response.status).toBe(401)
+
+    const data = await response.json()
+    expect(data.error).toBe('Authentication required')
   })
 
   it('should handle database errors', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     ;(getAdminSegments as jest.Mock).mockRejectedValue(new Error('Database error'))
 
-    const request = new NextRequest('http://localhost:3000/api/admin/segments', {
-      headers: {
-        'x-user-role': 'admin',
-      }
-    })
-    
+    const request = new NextRequest('http://localhost:3000/api/admin/segments')
+
     const response = await GET(request)
 
     expect(response.status).toBe(500)
@@ -139,6 +163,11 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should approve segment successfully', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const mockUpdatedSegment = {
       id: 'segment-1',
       coordinates: '[[37.7652,-122.2416]]',
@@ -159,8 +188,6 @@ describe('/api/admin/segments PATCH', () => {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'admin',
-        'x-user-id': 'admin-user-123',
       },
       body: JSON.stringify({
         segmentId: 'segment-1',
@@ -182,6 +209,11 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should reject segment successfully', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const mockUpdatedSegment = {
       id: 'segment-1',
       coordinates: '[[37.7652,-122.2416]]',
@@ -202,8 +234,6 @@ describe('/api/admin/segments PATCH', () => {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'admin',
-        'x-user-id': 'admin-user-123',
       },
       body: JSON.stringify({
         segmentId: 'segment-1',
@@ -221,12 +251,15 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should reject non-admin PATCH requests', async () => {
+    // Mock non-admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'user-123', email: 'user@example.com', role: 'user' }
+    })
+
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'user', // Not admin
-        'x-user-id': 'user-123',
       },
       body: JSON.stringify({
         segmentId: 'segment-1',
@@ -239,16 +272,19 @@ describe('/api/admin/segments PATCH', () => {
     expect(response.status).toBe(403)
 
     const data = await response.json()
-    expect(data.error).toBe('Unauthorized')
+    expect(data.error).toBe('Admin access required')
   })
 
   it('should validate request body', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'admin',
-        'x-user-id': 'admin-user-123',
       },
       body: JSON.stringify({
         segmentId: 'segment-1',
@@ -265,12 +301,15 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should validate required fields', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'admin',
-        'x-user-id': 'admin-user-123',
       },
       body: JSON.stringify({
         // Missing required fields
@@ -286,14 +325,17 @@ describe('/api/admin/segments PATCH', () => {
   })
 
   it('should handle database errors during approval', async () => {
+    // Mock admin session
+    mockAuth.mockResolvedValue({
+      user: { id: 'admin-user-123', email: 'admin@example.com', role: 'admin' }
+    })
+
     ;(updateSegmentStatus as jest.Mock).mockRejectedValue(new Error('Database error'))
 
     const request = new NextRequest('http://localhost:3000/api/admin/segments', {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
-        'x-user-role': 'admin',
-        'x-user-id': 'admin-user-123',
       },
       body: JSON.stringify({
         segmentId: 'segment-1',

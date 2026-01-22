@@ -1,16 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSegments, updateSegmentStatus } from '@/lib/database'
-import { SidewalkSegment } from '@/types/sidewalk'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Check if user is admin (this should be done by middleware)
-    const userRole = request.headers.get('x-user-role')
-    
-    if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Check if user is admin
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -27,17 +31,18 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Check if user is admin
-    const userRole = request.headers.get('x-user-role')
-    const userId = request.headers.get('x-user-id')
-    
-    if (userRole !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User ID required' }, { status: 400 })
+    // Check if user is admin
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
+
+    const userId = session.user.id
 
     const body = await request.json()
     const { segmentId, action } = body

@@ -1,33 +1,25 @@
-import Cookies from 'js-cookie'
-
-export function getAuthHeaders(): HeadersInit {
-  const token = Cookies.get('auth-token')
-  return token ? { 'Authorization': `Bearer ${token}` } : {}
-}
-
 export async function authenticatedFetch(url: string, options: RequestInit = {}) {
   const headers = {
     'Content-Type': 'application/json',
-    ...getAuthHeaders(),
     ...options.headers,
   }
 
   return fetch(url, {
     ...options,
     headers,
+    credentials: 'include', // Send Auth.js session cookie
   })
 }
 
 export function handleApiError(response: Response) {
   if (response.status === 401) {
-    // Token expired or invalid, redirect to login
-    Cookies.remove('auth-token')
+    // Session expired or invalid, redirect to login
     if (typeof window !== 'undefined') {
       window.location.href = '/?auth=required'
     }
     return
   }
-  
+
   if (response.status === 403) {
     // Forbidden - user doesn't have permission
     if (typeof window !== 'undefined') {
@@ -35,7 +27,7 @@ export function handleApiError(response: Response) {
     }
     return
   }
-  
+
   // Handle other errors
   throw new Error(`API Error: ${response.status}`)
 }
