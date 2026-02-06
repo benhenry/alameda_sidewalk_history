@@ -624,6 +624,388 @@ export async function deleteReferenceSidewalk(id: string): Promise<boolean> {
   })
 }
 
+// ============================================================================
+// Admin Segment Editing Functions
+// ============================================================================
+
+export async function adminUpdateSegment(
+  id: string,
+  updates: {
+    coordinates?: [number, number][]
+    contractor?: string
+    year?: number
+    street?: string
+    block?: string
+    notes?: string
+    specialMarks?: string[]
+    status?: 'pending' | 'approved' | 'rejected'
+  },
+  editedBy: string
+): Promise<SidewalkSegment | null> {
+  return withDatabase(async (client) => {
+    const setClauses: string[] = []
+    const values: any[] = []
+    let paramIndex = 1
+
+    // Build SET clauses dynamically
+    if (updates.coordinates !== undefined) {
+      setClauses.push(`coordinates = $${paramIndex}`)
+      values.push(JSON.stringify(updates.coordinates))
+      paramIndex++
+    }
+    if (updates.contractor !== undefined) {
+      setClauses.push(`contractor = $${paramIndex}`)
+      values.push(updates.contractor)
+      paramIndex++
+    }
+    if (updates.year !== undefined) {
+      setClauses.push(`year = $${paramIndex}`)
+      values.push(updates.year)
+      paramIndex++
+    }
+    if (updates.street !== undefined) {
+      setClauses.push(`street = $${paramIndex}`)
+      values.push(updates.street)
+      paramIndex++
+    }
+    if (updates.block !== undefined) {
+      setClauses.push(`block = $${paramIndex}`)
+      values.push(updates.block)
+      paramIndex++
+    }
+    if (updates.notes !== undefined) {
+      setClauses.push(`notes = $${paramIndex}`)
+      values.push(updates.notes)
+      paramIndex++
+    }
+    if (updates.specialMarks !== undefined) {
+      setClauses.push(`special_marks = $${paramIndex}`)
+      values.push(JSON.stringify(updates.specialMarks))
+      paramIndex++
+    }
+    if (updates.status !== undefined) {
+      setClauses.push(`status = $${paramIndex}`)
+      values.push(updates.status)
+      paramIndex++
+    }
+
+    if (setClauses.length === 0) return null
+
+    // Add audit trail
+    setClauses.push(`edited_by = $${paramIndex}`)
+    values.push(editedBy)
+    paramIndex++
+
+    setClauses.push(`edited_at = CURRENT_TIMESTAMP`)
+
+    values.push(id)
+
+    const result = await client.query(
+      `UPDATE sidewalk_segments
+       SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $${paramIndex}
+       RETURNING *`,
+      values
+    )
+
+    if (!result.rows[0]) return null
+
+    const row = result.rows[0]
+    return {
+      ...row,
+      coordinates: row.coordinates,
+      special_marks: row.special_marks || [],
+      specialMarks: row.special_marks || [],
+    }
+  })
+}
+
+// ============================================================================
+// Approved Segment Snapping Functions
+// ============================================================================
+
+export async function getApprovedSegmentGeometries(bounds?: {
+  north: number
+  south: number
+  east: number
+  west: number
+}): Promise<any[]> {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT
+        id, street, block, contractor, year,
+        ST_AsGeoJSON(geometry)::json as geometry
+      FROM sidewalk_segments
+      WHERE status = 'approved'
+        AND geometry IS NOT NULL
+    `
+    const params: any[] = []
+
+    if (bounds) {
+      query += ` AND ST_Intersects(
+        geometry,
+        ST_MakeEnvelope($1, $2, $3, $4, 4326)
+      )`
+      params.push(bounds.west, bounds.south, bounds.east, bounds.north)
+    }
+
+    query += ' LIMIT 5000'
+
+    const result = await client.query(query, params)
+    return result.rows
+  })
+}
+
+export async function snapToNearestApprovedSegment(
+  point: [number, number],
+  radiusMeters: number = 10
+): Promise<{ snapped: [number, number]; segmentId: string; street: string; distance: number } | null> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT
+        id,
+        street,
+        ST_Y(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lat,
+        ST_X(ST_ClosestPoint(geometry, ST_SetSRID(ST_MakePoint($2, $1), 4326))) as lng,
+        ST_Distance(
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography
+        ) as distance
+      FROM sidewalk_segments
+      WHERE status = 'approved'
+        AND geometry IS NOT NULL
+        AND ST_DWithin(
+          geometry::geography,
+          ST_SetSRID(ST_MakePoint($2, $1), 4326)::geography,
+          $3
+        )
+      ORDER BY distance
+      LIMIT 1`,
+      [point[0], point[1], radiusMeters]
+    )
+
+    if (result.rows.length === 0) return null
+
+    const row = result.rows[0]
+    return {
+      snapped: [row.lat, row.lng],
+      segmentId: row.id,
+      street: row.street,
+      distance: row.distance
+    }
+  })
+}
+
+// ============================================================================
+// Overlap Detection and Resolution Functions
+// ============================================================================
+
+export async function detectSegmentOverlaps(minOverlapMeters: number = 1): Promise<any[]> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `SELECT
+        a.id as segment1_id,
+        a.street as segment1_street,
+        a.block as segment1_block,
+        b.id as segment2_id,
+        b.street as segment2_street,
+        b.block as segment2_block,
+        ST_AsGeoJSON(ST_Intersection(a.geometry, b.geometry))::json as overlap_geometry,
+        ST_Length(ST_Intersection(a.geometry, b.geometry)::geography) as overlap_meters
+      FROM sidewalk_segments a
+      JOIN sidewalk_segments b ON ST_Intersects(a.geometry, b.geometry)
+      WHERE a.id < b.id
+        AND a.status = 'approved'
+        AND b.status = 'approved'
+        AND a.geometry IS NOT NULL
+        AND b.geometry IS NOT NULL
+        AND ST_Length(ST_Intersection(a.geometry, b.geometry)::geography) > $1
+      ORDER BY overlap_meters DESC`,
+      [minOverlapMeters]
+    )
+    return result.rows
+  })
+}
+
+export async function getSegmentConflicts(status?: string): Promise<any[]> {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT
+        c.*,
+        s1.street as segment1_street,
+        s1.block as segment1_block,
+        s1.contractor as segment1_contractor,
+        s2.street as segment2_street,
+        s2.block as segment2_block,
+        s2.contractor as segment2_contractor,
+        u.username as resolved_by_username
+      FROM segment_conflicts c
+      JOIN sidewalk_segments s1 ON c.segment1_id = s1.id
+      JOIN sidewalk_segments s2 ON c.segment2_id = s2.id
+      LEFT JOIN users u ON c.resolved_by = u.id
+    `
+    const params: any[] = []
+
+    if (status) {
+      query += ' WHERE c.status = $1'
+      params.push(status)
+    }
+
+    query += ' ORDER BY c.created_at DESC'
+
+    const result = await client.query(query, params)
+    return result.rows
+  })
+}
+
+export async function createSegmentConflict(data: {
+  segment1Id: string
+  segment2Id: string
+  overlapLengthMeters: number
+}): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `INSERT INTO segment_conflicts (segment1_id, segment2_id, overlap_length_meters)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (segment1_id, segment2_id) DO UPDATE SET
+         overlap_length_meters = EXCLUDED.overlap_length_meters,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING *`,
+      [data.segment1Id, data.segment2Id, data.overlapLengthMeters]
+    )
+    return result.rows[0]
+  })
+}
+
+export async function resolveSegmentConflict(
+  conflictId: string,
+  action: string,
+  resolvedBy: string
+): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `UPDATE segment_conflicts
+       SET status = 'resolved', resolution_action = $1, resolved_by = $2, resolved_at = CURRENT_TIMESTAMP
+       WHERE id = $3
+       RETURNING *`,
+      [action, resolvedBy, conflictId]
+    )
+    return result.rows[0]
+  })
+}
+
+export async function acceptSegmentConflict(
+  conflictId: string,
+  resolvedBy: string
+): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `UPDATE segment_conflicts
+       SET status = 'accepted', resolution_action = 'accept_overlap', resolved_by = $1, resolved_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [resolvedBy, conflictId]
+    )
+    return result.rows[0]
+  })
+}
+
+// ============================================================================
+// Batch Correction Functions
+// ============================================================================
+
+export async function getSegmentsForCorrection(filters?: {
+  street?: string
+  yearMin?: number
+  yearMax?: number
+}): Promise<SidewalkSegment[]> {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT s.*, u.username as created_by_username
+      FROM sidewalk_segments s
+      LEFT JOIN users u ON s.created_by = u.id
+      WHERE s.status = 'approved' AND s.geometry IS NOT NULL
+    `
+    const params: any[] = []
+    let paramIndex = 1
+
+    if (filters?.street) {
+      query += ` AND s.street ILIKE $${paramIndex}`
+      params.push(`%${filters.street}%`)
+      paramIndex++
+    }
+    if (filters?.yearMin) {
+      query += ` AND s.year >= $${paramIndex}`
+      params.push(filters.yearMin)
+      paramIndex++
+    }
+    if (filters?.yearMax) {
+      query += ` AND s.year <= $${paramIndex}`
+      params.push(filters.yearMax)
+      paramIndex++
+    }
+
+    query += ' ORDER BY s.street, s.block'
+
+    const result = await client.query(query, params)
+    return result.rows.map(row => ({
+      ...row,
+      coordinates: row.coordinates,
+      special_marks: row.special_marks || [],
+      specialMarks: row.special_marks || [],
+    }))
+  })
+}
+
+export async function createSegmentCorrection(data: {
+  segmentId: string
+  originalCoordinates: [number, number][]
+  correctedCoordinates: [number, number][]
+  maxDistanceMeters: number
+  correctedBy: string
+  correctionType?: 'batch' | 'manual'
+}): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      `INSERT INTO segment_corrections
+       (segment_id, original_coordinates, corrected_coordinates, max_distance_meters, corrected_by, correction_type)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [
+        data.segmentId,
+        JSON.stringify(data.originalCoordinates),
+        JSON.stringify(data.correctedCoordinates),
+        data.maxDistanceMeters,
+        data.correctedBy,
+        data.correctionType || 'batch'
+      ]
+    )
+    return result.rows[0]
+  })
+}
+
+export async function getSegmentCorrections(segmentId?: string): Promise<any[]> {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT c.*, s.street, s.block, u.username as corrected_by_username
+      FROM segment_corrections c
+      JOIN sidewalk_segments s ON c.segment_id = s.id
+      LEFT JOIN users u ON c.corrected_by = u.id
+    `
+    const params: any[] = []
+
+    if (segmentId) {
+      query += ' WHERE c.segment_id = $1'
+      params.push(segmentId)
+    }
+
+    query += ' ORDER BY c.corrected_at DESC'
+
+    const result = await client.query(query, params)
+    return result.rows
+  })
+}
+
 export default {
   initDatabase,
   getUserByEmail,
@@ -657,4 +1039,19 @@ export default {
   getAllReferenceSidewalks,
   updateReferenceSidewalk,
   deleteReferenceSidewalk,
+  // Admin editing functions
+  adminUpdateSegment,
+  // Approved segment snapping
+  getApprovedSegmentGeometries,
+  snapToNearestApprovedSegment,
+  // Overlap detection
+  detectSegmentOverlaps,
+  getSegmentConflicts,
+  createSegmentConflict,
+  resolveSegmentConflict,
+  acceptSegmentConflict,
+  // Batch correction
+  getSegmentsForCorrection,
+  createSegmentCorrection,
+  getSegmentCorrections,
 }

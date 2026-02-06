@@ -220,6 +220,155 @@ export async function deleteReferenceSidewalk(id: string): Promise<boolean> {
   return false
 }
 
+// ============================================================================
+// Admin Segment Editing Functions
+// ============================================================================
+
+export async function adminUpdateSegment(
+  id: string,
+  updates: {
+    coordinates?: [number, number][]
+    contractor?: string
+    year?: number
+    street?: string
+    block?: string
+    notes?: string
+    specialMarks?: string[]
+    status?: 'pending' | 'approved' | 'rejected'
+  },
+  editedBy: string
+): Promise<SidewalkSegment | null> {
+  const dbModule = await getDbModule()
+  if ('adminUpdateSegment' in dbModule) {
+    return dbModule.adminUpdateSegment(id, updates, editedBy)
+  }
+  // Fallback to regular update for SQLite
+  return dbModule.updateSegment(id, updates)
+}
+
+// ============================================================================
+// Approved Segment Snapping Functions
+// ============================================================================
+
+export async function getApprovedSegmentGeometries(bounds?: {
+  north: number
+  south: number
+  east: number
+  west: number
+}): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('getApprovedSegmentGeometries' in dbModule) {
+    return dbModule.getApprovedSegmentGeometries(bounds)
+  }
+  return []
+}
+
+export async function snapToNearestApprovedSegment(
+  point: [number, number],
+  radiusMeters?: number
+): Promise<{ snapped: [number, number]; segmentId: string; street: string; distance: number } | null> {
+  const dbModule = await getDbModule()
+  if ('snapToNearestApprovedSegment' in dbModule) {
+    return dbModule.snapToNearestApprovedSegment(point, radiusMeters)
+  }
+  return null
+}
+
+// ============================================================================
+// Overlap Detection and Resolution Functions
+// ============================================================================
+
+export async function detectSegmentOverlaps(minOverlapMeters?: number): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('detectSegmentOverlaps' in dbModule) {
+    return dbModule.detectSegmentOverlaps(minOverlapMeters)
+  }
+  return []
+}
+
+export async function getSegmentConflicts(status?: string): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('getSegmentConflicts' in dbModule) {
+    return dbModule.getSegmentConflicts(status)
+  }
+  return []
+}
+
+export async function createSegmentConflict(data: {
+  segment1Id: string
+  segment2Id: string
+  overlapLengthMeters: number
+}): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('createSegmentConflict' in dbModule) {
+    return dbModule.createSegmentConflict(data)
+  }
+  return null
+}
+
+export async function resolveSegmentConflict(
+  conflictId: string,
+  action: string,
+  resolvedBy: string
+): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('resolveSegmentConflict' in dbModule) {
+    return dbModule.resolveSegmentConflict(conflictId, action, resolvedBy)
+  }
+  return null
+}
+
+export async function acceptSegmentConflict(
+  conflictId: string,
+  resolvedBy: string
+): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('acceptSegmentConflict' in dbModule) {
+    return dbModule.acceptSegmentConflict(conflictId, resolvedBy)
+  }
+  return null
+}
+
+// ============================================================================
+// Batch Correction Functions
+// ============================================================================
+
+export async function getSegmentsForCorrection(filters?: {
+  street?: string
+  yearMin?: number
+  yearMax?: number
+}): Promise<SidewalkSegment[]> {
+  const dbModule = await getDbModule()
+  if ('getSegmentsForCorrection' in dbModule) {
+    return dbModule.getSegmentsForCorrection(filters)
+  }
+  // Fallback to getAllSegments
+  return dbModule.getAllSegments()
+}
+
+export async function createSegmentCorrection(data: {
+  segmentId: string
+  originalCoordinates: [number, number][]
+  correctedCoordinates: [number, number][]
+  maxDistanceMeters: number
+  correctedBy: string
+  correctionType?: 'batch' | 'manual'
+}): Promise<any> {
+  const dbModule = await getDbModule()
+  if ('createSegmentCorrection' in dbModule) {
+    return dbModule.createSegmentCorrection(data)
+  }
+  return null
+}
+
+export async function getSegmentCorrections(segmentId?: string): Promise<any[]> {
+  const dbModule = await getDbModule()
+  if ('getSegmentCorrections' in dbModule) {
+    return dbModule.getSegmentCorrections(segmentId)
+  }
+  return []
+}
+
 // Utility functions with fallbacks
 export function parseCoordinates(str: string): [number, number][] {
   try {

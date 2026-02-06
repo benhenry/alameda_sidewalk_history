@@ -18,8 +18,8 @@ const customJestConfig = {
     global: {
       branches: 20,
       functions: 15,
-      lines: 25,
-      statements: 25,
+      lines: 20,
+      statements: 20,
     },
   },
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],

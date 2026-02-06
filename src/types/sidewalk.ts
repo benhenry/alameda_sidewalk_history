@@ -11,6 +11,11 @@ export interface SidewalkSegment {
   createdAt: Date;
   updatedAt: Date;
   status?: 'pending' | 'approved' | 'rejected';
+  createdBy?: string;
+  approvedBy?: string;
+  approvedAt?: Date;
+  editedBy?: string;
+  editedAt?: Date;
 }
 
 export interface Photo {

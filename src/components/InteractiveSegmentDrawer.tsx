@@ -5,11 +5,21 @@ import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker }
 import L from 'leaflet'
 import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
 
+interface ApprovedSegment {
+  id: string
+  street: string
+  geometry: {
+    type: string
+    coordinates: [number, number][]
+  }
+}
+
 interface InteractiveSegmentDrawerProps {
   onCoordinatesChange: (coordinates: [number, number][]) => void
   onStreetDetected?: (street: string | null) => void
   initialCoordinates?: [number, number][]
   sidewalkData?: [number, number][][]  // Array of LineStrings
+  showApprovedSegments?: boolean  // Show approved segments for snapping (default: true)
 }
 
 // Alameda, CA coordinates
@@ -176,6 +186,77 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][][]
   )
 }
 
+function ApprovedSegmentsOverlay() {
+  const map = useMap()
+  const [approvedSegments, setApprovedSegments] = useState<ApprovedSegment[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const fetchApprovedSegments = useCallback(async () => {
+    if (!map) return
+
+    const bounds = map.getBounds()
+    if (!bounds) return
+
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({
+        north: bounds.getNorth().toString(),
+        south: bounds.getSouth().toString(),
+        east: bounds.getEast().toString(),
+        west: bounds.getWest().toString()
+      })
+
+      const response = await fetch(`/api/segments/approved-geometries?${params}`)
+      if (response.ok) {
+        const data = await response.json()
+        setApprovedSegments(data.segments || [])
+      }
+    } catch (error) {
+      console.error('Error fetching approved segments:', error)
+    } finally {
+      setLoading(false)
+    }
+  }, [map])
+
+  // Fetch on mount and when map moves
+  useEffect(() => {
+    fetchApprovedSegments()
+  }, [fetchApprovedSegments])
+
+  useMapEvents({
+    moveend: () => {
+      fetchApprovedSegments()
+    },
+    zoomend: () => {
+      fetchApprovedSegments()
+    }
+  })
+
+  // Convert GeoJSON coordinates [lng, lat] to Leaflet [lat, lng]
+  const convertCoords = (coords: [number, number][]): [number, number][] => {
+    return coords.map(([lng, lat]) => [lat, lng])
+  }
+
+  return (
+    <>
+      {approvedSegments.map((segment) => {
+        if (!segment.geometry || segment.geometry.type !== 'LineString') return null
+        const positions = convertCoords(segment.geometry.coordinates)
+        return (
+          <Polyline
+            key={`approved-${segment.id}`}
+            positions={positions}
+            color="#16A34A"
+            weight={4}
+            opacity={0.7}
+            dashArray="12, 6"
+          />
+        )
+      })}
+    </>
+  )
+}
+
 function MapSearch({ onLocationFound }: { onLocationFound: (lat: number, lng: number) => void }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
@@ -255,7 +336,8 @@ export default function InteractiveSegmentDrawer({
   onCoordinatesChange,
   onStreetDetected,
   initialCoordinates = [],
-  sidewalkData
+  sidewalkData,
+  showApprovedSegments = true
 }: InteractiveSegmentDrawerProps) {
   const [coordinates, setCoordinates] = useState<[number, number][]>(initialCoordinates)
   const [isClient, setIsClient] = useState(false)
@@ -298,9 +380,9 @@ export default function InteractiveSegmentDrawer({
           <div className="text-sm">
             <p className="font-medium text-blue-800 mb-1">How to draw a sidewalk segment:</p>
             <ul className="text-blue-700 space-y-1">
-              <li>• <strong>Click directly on or very close to the blue dashed lines</strong></li>
-              <li>• Blue dashed lines show actual sidewalk locations from OpenStreetMap</li>
-              <li>• You must click within 50 meters of a blue line to add a point</li>
+              <li>• <strong>Click on or near the dashed lines to add points</strong></li>
+              <li>• <span className="text-green-700 font-medium">Green dashed lines</span> = existing approved segments (snap within 10m)</li>
+              <li>• <span className="text-blue-700 font-medium">Blue dashed lines</span> = OSM reference sidewalks (snap within 50m)</li>
               <li>• Connect 2+ points along the same sidewalk to create a segment</li>
               <li>• Points will automatically snap to the exact sidewalk location</li>
             </ul>
@@ -323,8 +405,11 @@ export default function InteractiveSegmentDrawer({
           
           {/* Map controller for search */}
           <MapController searchLat={searchLat} searchLng={searchLng} />
-          
-          {/* Show sidewalk overlay */}
+
+          {/* Show approved segments overlay (green) */}
+          {showApprovedSegments && <ApprovedSegmentsOverlay />}
+
+          {/* Show reference sidewalk overlay (blue) */}
           <SidewalkOverlay sidewalkData={sidewalkData} />
           
           {/* Drawing events */}

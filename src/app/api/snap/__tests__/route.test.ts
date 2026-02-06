@@ -7,12 +7,15 @@ jest.mock('@/lib/database')
 describe('POST /api/snap', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Default: no approved segment nearby
+    ;(database.snapToNearestApprovedSegment as jest.Mock).mockResolvedValue(null)
   })
 
   it('should snap coordinates to nearest sidewalk', async () => {
     const mockSnap = jest.fn().mockResolvedValue({
       snapped: [37.7652, -122.2416],
       referenceId: 'ref-123',
+      street: 'Park Street',
       distance: 15.5
     })
     ;(database.snapToNearestSidewalk as jest.Mock) = mockSnap
@@ -33,7 +36,9 @@ describe('POST /api/snap', () => {
     expect(data.metadata[0]).toEqual({
       original: [37.7651, -122.2415],
       snapped: [37.7652, -122.2416],
+      source: 'reference_sidewalk',
       referenceId: 'ref-123',
+      street: 'Park Street',
       distance: 15.5
     })
     expect(mockSnap).toHaveBeenCalledWith([37.7651, -122.2415])
@@ -74,6 +79,7 @@ describe('POST /api/snap', () => {
 
   it('should handle coordinates with no nearby sidewalk', async () => {
     ;(database.snapToNearestSidewalk as jest.Mock).mockResolvedValue(null)
+    ;(database.snapToNearestApprovedSegment as jest.Mock).mockResolvedValue(null)
 
     const request = new NextRequest('http://localhost/api/snap', {
       method: 'POST',
@@ -88,7 +94,7 @@ describe('POST /api/snap', () => {
     expect(response.status).toBe(200)
     expect(data.snappedCoordinates[0]).toEqual([37.9, -122.5])
     expect(data.metadata[0].snapped).toBeNull()
-    expect(data.metadata[0].error).toBe('No nearby sidewalk within 50m')
+    expect(data.metadata[0].error).toBe('No nearby sidewalk within snap radius')
   })
 
   it('should return 400 for missing coordinates', async () => {

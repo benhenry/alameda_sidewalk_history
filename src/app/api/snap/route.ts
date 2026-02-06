@@ -1,18 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { snapToNearestSidewalk } from '@/lib/database'
+import { snapToNearestSidewalk, snapToNearestApprovedSegment } from '@/lib/database'
 
 export const dynamic = 'force-dynamic'
 
 /**
  * POST /api/snap
  *
- * Snaps coordinates to the nearest reference sidewalk using PostGIS ST_ClosestPoint.
- * This provides precise snapping to actual sidewalk geometries.
+ * Snaps coordinates to the nearest sidewalk using PostGIS ST_ClosestPoint.
+ * Priority order:
+ *   1. Approved segments (10m radius) - for extending existing segments
+ *   2. Reference sidewalks (50m radius) - for new segments
  *
  * Request Body:
  *   {
  *     coordinates: [[lat, lng], ...],
- *     snapRadius?: number  // Optional, defaults to 50 meters
+ *     snapRadius?: number  // Optional, defaults to 50 meters for reference sidewalks
  *   }
  *
  * Response:
@@ -22,7 +24,9 @@ export const dynamic = 'force-dynamic'
  *       {
  *         original: [lat, lng],
  *         snapped: [lat, lng] | null,
- *         referenceId: string,
+ *         source: 'approved_segment' | 'reference_sidewalk',
+ *         segmentId?: string,
+ *         referenceId?: string,
  *         street: string | null,
  *         distance: number
  *       }
@@ -32,7 +36,7 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { coordinates } = body
+    const { coordinates, approvedSnapRadius = 10, referenceSnapRadius = 50 } = body
 
     if (!coordinates || !Array.isArray(coordinates)) {
       return NextResponse.json(
@@ -52,17 +56,39 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const result = await snapToNearestSidewalk(coord as [number, number])
+      // First, try to snap to approved segments (higher priority, tighter radius)
+      const approvedResult = await snapToNearestApprovedSegment(
+        coord as [number, number],
+        approvedSnapRadius
+      )
 
-      if (result) {
-        // Successfully snapped to a nearby sidewalk
-        snappedCoordinates.push(result.snapped)
+      if (approvedResult) {
+        // Successfully snapped to an approved segment
+        snappedCoordinates.push(approvedResult.snapped)
         metadata.push({
           original: coord,
-          snapped: result.snapped,
-          referenceId: result.referenceId,
-          street: result.street,
-          distance: Math.round(result.distance * 100) / 100 // Round to 2 decimals
+          snapped: approvedResult.snapped,
+          source: 'approved_segment',
+          segmentId: approvedResult.segmentId,
+          street: approvedResult.street,
+          distance: Math.round(approvedResult.distance * 100) / 100
+        })
+        continue
+      }
+
+      // Fall back to reference sidewalks
+      const referenceResult = await snapToNearestSidewalk(coord as [number, number])
+
+      if (referenceResult) {
+        // Successfully snapped to a reference sidewalk
+        snappedCoordinates.push(referenceResult.snapped)
+        metadata.push({
+          original: coord,
+          snapped: referenceResult.snapped,
+          source: 'reference_sidewalk',
+          referenceId: referenceResult.referenceId,
+          street: referenceResult.street,
+          distance: Math.round(referenceResult.distance * 100) / 100
         })
       } else {
         // No nearby sidewalk found within snap radius
@@ -70,7 +96,7 @@ export async function POST(request: NextRequest) {
         metadata.push({
           original: coord,
           snapped: null,
-          error: 'No nearby sidewalk within 50m'
+          error: 'No nearby sidewalk within snap radius'
         })
       }
     }

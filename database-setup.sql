@@ -181,3 +181,62 @@ CREATE TRIGGER sync_geometry_on_insert_update
 COMMENT ON TABLE reference_sidewalks IS 'Reference sidewalk geometries imported from OpenStreetMap';
 COMMENT ON COLUMN sidewalk_segments.geometry IS 'PostGIS geometry representation of sidewalk line';
 COMMENT ON COLUMN sidewalk_segments.geometry_source IS 'Source of geometry data: manual, osm, or corrected';
+
+-- ============================================================================
+-- Admin Editing Audit Trail
+-- ============================================================================
+
+-- Add audit columns for admin editing
+ALTER TABLE sidewalk_segments
+ADD COLUMN IF NOT EXISTS edited_by UUID REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE sidewalk_segments
+ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP WITH TIME ZONE;
+
+COMMENT ON COLUMN sidewalk_segments.edited_by IS 'Admin user who last edited this segment';
+COMMENT ON COLUMN sidewalk_segments.edited_at IS 'Timestamp of last admin edit';
+
+-- ============================================================================
+-- Segment Conflicts Table for Overlap Detection
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS segment_conflicts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    segment1_id UUID NOT NULL REFERENCES sidewalk_segments(id) ON DELETE CASCADE,
+    segment2_id UUID NOT NULL REFERENCES sidewalk_segments(id) ON DELETE CASCADE,
+    overlap_length_meters NUMERIC(10, 2),
+    overlap_geometry geometry(LineString, 4326),
+    status VARCHAR(20) DEFAULT 'open' CHECK (status IN ('open', 'resolved', 'accepted')),
+    resolution_action VARCHAR(50),
+    resolved_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    resolved_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_segment_pair UNIQUE (segment1_id, segment2_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_segment_conflicts_status ON segment_conflicts(status);
+CREATE INDEX IF NOT EXISTS idx_segment_conflicts_segment1 ON segment_conflicts(segment1_id);
+CREATE INDEX IF NOT EXISTS idx_segment_conflicts_segment2 ON segment_conflicts(segment2_id);
+
+COMMENT ON TABLE segment_conflicts IS 'Tracks overlapping segment pairs for admin resolution';
+
+-- ============================================================================
+-- Segment Corrections History Table
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS segment_corrections (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    segment_id UUID NOT NULL REFERENCES sidewalk_segments(id) ON DELETE CASCADE,
+    original_coordinates JSONB NOT NULL,
+    corrected_coordinates JSONB NOT NULL,
+    max_distance_meters NUMERIC(10, 2),
+    correction_type VARCHAR(20) DEFAULT 'batch' CHECK (correction_type IN ('batch', 'manual')),
+    corrected_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    corrected_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_segment_corrections_segment ON segment_corrections(segment_id);
+CREATE INDEX IF NOT EXISTS idx_segment_corrections_date ON segment_corrections(corrected_at);
+
+COMMENT ON TABLE segment_corrections IS 'History of segment coordinate corrections for audit trail';

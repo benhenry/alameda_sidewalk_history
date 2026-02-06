@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added - Segment Snapping, Editing, and Overlap Resolution (2026-02-06)
+
+**Phase 1: Security Fix (Critical)**
+- Fixed authentication vulnerability in `/api/segments/[id]` endpoint
+- PUT: Now requires authentication + (segment owner OR admin role)
+- DELETE: Now requires admin role only
+- Added `export const dynamic = 'force-dynamic'` for session access
+
+**Phase 2: Admin Segment Editing**
+- New `AdminSegmentEditor` component for full segment editing
+- New `/api/admin/segments/[id]` endpoint with GET/PUT/DELETE
+- Added Edit and Delete buttons to `AdminSegmentApproval` component
+- Added `edited_by` and `edited_at` audit columns to database schema
+- New `adminUpdateSegment()` function with audit trail
+
+**Phase 3: Snap to Approved Segments**
+- Enhanced snap API to prioritize approved segments (10m radius) over reference sidewalks (50m)
+- New `/api/segments/approved-geometries` endpoint for fetching approved segment geometries
+- New `ApprovedSegmentsOverlay` component showing approved segments as green dashed lines
+- Updated `InteractiveSegmentDrawer` with dual-overlay system (green = approved, blue = OSM)
+- New `snapToNearestApprovedSegment()` PostGIS function
+
+**Phase 4: Overlap Detection and Resolution**
+- New `segment_conflicts` table for tracking overlapping segments
+- New `/api/admin/conflicts` endpoint for listing and detecting overlaps
+- New `/api/admin/conflicts/resolve` endpoint for resolution actions
+- New `AdminConflictResolution` component with conflict list and action buttons
+- Resolution actions: accept_overlap, delete_segment1, delete_segment2
+- PostGIS-based overlap detection using ST_Intersects and ST_Length
+
+**Phase 5: Batch Correction Process**
+- New `segment_corrections` table for correction history
+- New `/api/admin/batch-correct/preview` endpoint for previewing changes
+- New `/api/admin/batch-correct` endpoint for executing corrections
+- New `batch-correction.ts` utility with correction algorithm
+- Dry-run support for safe testing before execution
+
+**Database Schema Changes (database-setup.sql)**
+- Added `edited_by`, `edited_at` columns to `sidewalk_segments`
+- Created `segment_conflicts` table
+- Created `segment_corrections` table
+
+**Type Updates**
+- Extended `SidewalkSegment` interface with `createdBy`, `approvedBy`, `approvedAt`, `editedBy`, `editedAt`
+
+**Test Coverage**
+- Updated snap API tests for new `source` field
+- Updated InteractiveSegmentDrawer tests for new instruction text
+- Reduced coverage threshold to 20% (matching CLAUDE.md specification)
+- All 166 tests passing
+
+---
+
 ### Added - CI/CD Pipeline & Production Deployment (2026-01-16)
 
 **GitHub Actions CI/CD Pipeline:**

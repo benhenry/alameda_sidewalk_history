@@ -53,10 +53,22 @@
    - `reference_sidewalks` table needs to be created in production
    - Run migration SQL in Cloud SQL
 
-**P5 - Admin Features**
+**P5 - Admin Features (PARTIALLY COMPLETED 2026-02-06)**
 1. User management dashboard
-2. Bulk segment operations
+2. ✅ **COMPLETED**: Bulk segment operations
+   - ✅ Batch correction for misaligned segments
+   - ✅ Overlap detection and resolution
 3. Data export functionality
+4. ✅ **COMPLETED**: Admin segment editing
+   - ✅ Full edit modal with coordinate adjustment
+   - ✅ Edit button on segment approval list
+   - ✅ Audit trail (edited_by, edited_at)
+
+**P6 - Enhanced Snapping (COMPLETED 2026-02-06)**
+1. ✅ **COMPLETED**: Snap to approved segments
+   - ✅ Green overlay for approved segments on drawing map
+   - ✅ Priority snapping: approved (10m) > reference (50m)
+   - ✅ Source indicator in snap API response
 
 ---
 

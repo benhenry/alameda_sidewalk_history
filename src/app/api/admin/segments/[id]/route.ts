@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSegmentById, updateSegment, deleteSegment } from '@/lib/database'
-import { SidewalkSegment } from '@/types/sidewalk'
+import { getSegmentById, adminUpdateSegment, deleteSegment } from '@/lib/database'
 import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
@@ -10,8 +9,19 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Check if user is admin
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
     const segment = await getSegmentById(params.id)
-    
+
     if (!segment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
@@ -34,38 +44,52 @@ export async function PUT(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    // Check if segment exists and get owner info
+    // Check if user is admin
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    // Check if segment exists
     const existingSegment = await getSegmentById(params.id)
     if (!existingSegment) {
       return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
     }
 
-    // Allow update only if user is segment owner OR admin
-    const isOwner = existingSegment.createdBy === session.user.id
-    const isAdmin = session.user.role === 'admin'
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ error: 'Not authorized to update this segment' }, { status: 403 })
-    }
-
     const body = await request.json()
-    const { coordinates, contractor, year, street, block, notes, specialMarks } = body
+    const { coordinates, contractor, year, street, block, notes, specialMarks, status } = body
 
-    if (!coordinates || !contractor || !year || !street || !block) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    // Validate required fields if updating
+    if (coordinates !== undefined && (!Array.isArray(coordinates) || coordinates.length < 2)) {
+      return NextResponse.json({ error: 'At least 2 coordinates are required' }, { status: 400 })
     }
 
-    const updatedSegment = await updateSegment(params.id, {
-      coordinates,
-      contractor,
-      year,
-      street,
-      block,
-      notes,
-      specialMarks
-    })
+    if (year !== undefined && (typeof year !== 'number' || year < 1850 || year > new Date().getFullYear())) {
+      return NextResponse.json({ error: 'Invalid year' }, { status: 400 })
+    }
+
+    // Build updates object with only provided fields
+    const updates: any = {}
+    if (coordinates !== undefined) updates.coordinates = coordinates
+    if (contractor !== undefined) updates.contractor = contractor
+    if (year !== undefined) updates.year = year
+    if (street !== undefined) updates.street = street
+    if (block !== undefined) updates.block = block
+    if (notes !== undefined) updates.notes = notes
+    if (specialMarks !== undefined) updates.specialMarks = specialMarks
+    if (status !== undefined) updates.status = status
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json({ error: 'No updates provided' }, { status: 400 })
+    }
+
+    const updatedSegment = await adminUpdateSegment(
+      params.id,
+      updates,
+      session.user.id
+    )
 
     if (!updatedSegment) {
-      return NextResponse.json({ error: 'Segment not found' }, { status: 404 })
+      return NextResponse.json({ error: 'Failed to update segment' }, { status: 500 })
     }
 
     return NextResponse.json(updatedSegment)
@@ -86,7 +110,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    // Only admins can delete segments
+    // Check if user is admin
     if (session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }

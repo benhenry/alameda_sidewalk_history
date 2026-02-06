@@ -6,6 +6,7 @@ import { Plus, Edit, Trash2, MapPin, Camera, Upload } from 'lucide-react'
 import SegmentForm from '@/components/SegmentForm'
 import PhotoUpload from '@/components/PhotoUpload'
 import AdminSegmentApproval from '@/components/AdminSegmentApproval'
+import AdminConflictResolution from '@/components/AdminConflictResolution'
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { authenticatedFetch } from '@/lib/api'
 
@@ -242,6 +243,9 @@ export default function AdminPage() {
           <div className="space-y-6">
             {/* Segment Approval */}
             <AdminSegmentApproval onPreviewSegment={handlePreviewSegment} />
+
+            {/* Overlap Conflict Resolution */}
+            <AdminConflictResolution />
 
             {/* Statistics */}
             <div className="bg-white rounded-lg shadow-sm p-6">

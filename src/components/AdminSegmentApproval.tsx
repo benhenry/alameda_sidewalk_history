@@ -1,27 +1,32 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { CheckCircle, XCircle, Clock, User, MapPin, Calendar, AlertTriangle, Eye } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, User, MapPin, Calendar, AlertTriangle, Eye, Pencil, Trash2 } from 'lucide-react'
 import { SidewalkSegment } from '@/types/sidewalk'
 import { authenticatedFetch, handleApiError } from '@/lib/api'
+import AdminSegmentEditor from './AdminSegmentEditor'
 
 interface AdminSegment extends SidewalkSegment {
   status: 'pending' | 'approved' | 'rejected'
   createdByUsername?: string
   approvedByUsername?: string
   approvedAt?: Date
+  editedBy?: string
+  editedAt?: Date
 }
 
 interface AdminSegmentApprovalProps {
   onPreviewSegment?: (segment: AdminSegment) => void
+  sidewalkData?: [number, number][][]
 }
 
-export default function AdminSegmentApproval({ onPreviewSegment }: AdminSegmentApprovalProps) {
+export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }: AdminSegmentApprovalProps) {
   const [pendingSegments, setPendingSegments] = useState<AdminSegment[]>([])
   const [allSegments, setAllSegments] = useState<AdminSegment[]>([])
   const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
   const [loading, setLoading] = useState(true)
   const [processingSegments, setProcessingSegments] = useState<Set<string>>(new Set())
+  const [editingSegment, setEditingSegment] = useState<AdminSegment | null>(null)
 
   useEffect(() => {
     loadSegments()
@@ -75,12 +80,57 @@ export default function AdminSegmentApproval({ onPreviewSegment }: AdminSegmentA
 
       // Reload data
       await loadSegments()
-      
+
       const actionText = action === 'approve' ? 'approved' : 'rejected'
       alert(`Segment ${actionText} successfully!`)
     } catch (error) {
       console.error(`Error ${action}ing segment:`, error)
       alert(`Failed to ${action} segment`)
+    } finally {
+      setProcessingSegments(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(segmentId)
+        return newSet
+      })
+    }
+  }
+
+  const handleEdit = (segment: AdminSegment) => {
+    setEditingSegment(segment)
+  }
+
+  const handleEditSave = (updatedSegment: SidewalkSegment) => {
+    // Reload segments after edit
+    loadSegments()
+    setEditingSegment(null)
+    alert('Segment updated successfully!')
+  }
+
+  const handleDelete = async (segmentId: string) => {
+    if (!confirm('Are you sure you want to delete this segment? This action cannot be undone.')) {
+      return
+    }
+
+    if (processingSegments.has(segmentId)) return
+
+    setProcessingSegments(prev => new Set(prev).add(segmentId))
+
+    try {
+      const response = await authenticatedFetch(`/api/admin/segments/${segmentId}`, {
+        method: 'DELETE'
+      })
+
+      if (!response.ok) {
+        handleApiError(response)
+        throw new Error('Failed to delete segment')
+      }
+
+      // Reload data
+      await loadSegments()
+      alert('Segment deleted successfully!')
+    } catch (error) {
+      console.error('Error deleting segment:', error)
+      alert('Failed to delete segment')
     } finally {
       setProcessingSegments(prev => {
         const newSet = new Set(prev)
@@ -232,7 +282,16 @@ export default function AdminSegmentApproval({ onPreviewSegment }: AdminSegmentA
                       Preview on Map
                     </button>
                   )}
-                  
+
+                  <button
+                    onClick={() => handleEdit(segment)}
+                    disabled={processingSegments.has(segment.id)}
+                    className="flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </button>
+
                   {segment.status === 'pending' && (
                     <>
                       <button
@@ -253,12 +312,31 @@ export default function AdminSegmentApproval({ onPreviewSegment }: AdminSegmentA
                       </button>
                     </>
                   )}
+
+                  <button
+                    onClick={() => handleDelete(segment.id)}
+                    disabled={processingSegments.has(segment.id)}
+                    className="flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Edit Modal */}
+      {editingSegment && (
+        <AdminSegmentEditor
+          segment={editingSegment}
+          onClose={() => setEditingSegment(null)}
+          onSave={handleEditSave}
+          sidewalkData={sidewalkData}
+        />
+      )}
     </div>
   )
 }

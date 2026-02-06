@@ -42,8 +42,9 @@ describe('InteractiveSegmentDrawer', () => {
     })
 
     // Check for key instruction elements (text may be split across elements)
-    expect(screen.getByText(/Click directly on or very close to the blue dashed lines/i)).toBeInTheDocument()
-    expect(screen.getByText(/Blue dashed lines show actual sidewalk locations/i)).toBeInTheDocument()
+    expect(screen.getByText(/Click on or near the dashed lines to add points/i)).toBeInTheDocument()
+    expect(screen.getByText(/Green dashed lines/i)).toBeInTheDocument()
+    expect(screen.getByText(/Blue dashed lines/i)).toBeInTheDocument()
   })
 
   it('should show map container after mount', async () => {
