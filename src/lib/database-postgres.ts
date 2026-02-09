@@ -731,6 +731,17 @@ export async function getApprovedSegmentGeometries(bounds?: {
   west: number
 }): Promise<any[]> {
   return withDatabase(async (client) => {
+    // Check if geometry column exists
+    const colCheck = await client.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'sidewalk_segments' AND column_name = 'geometry'`
+    )
+
+    if (colCheck.rows.length === 0) {
+      // Geometry column doesn't exist, return empty array
+      return []
+    }
+
     let query = `
       SELECT
         id, street, block, contractor, year,
@@ -761,6 +772,17 @@ export async function snapToNearestApprovedSegment(
   radiusMeters: number = 10
 ): Promise<{ snapped: [number, number]; segmentId: string; street: string; distance: number } | null> {
   return withDatabase(async (client) => {
+    // Check if geometry column exists
+    const colCheck = await client.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'sidewalk_segments' AND column_name = 'geometry'`
+    )
+
+    if (colCheck.rows.length === 0) {
+      // Geometry column doesn't exist, skip approved segment snapping
+      return null
+    }
+
     const result = await client.query(
       `SELECT
         id,
@@ -802,6 +824,17 @@ export async function snapToNearestApprovedSegment(
 
 export async function detectSegmentOverlaps(minOverlapMeters: number = 1): Promise<any[]> {
   return withDatabase(async (client) => {
+    // First check if geometry column exists
+    const colCheck = await client.query(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'sidewalk_segments' AND column_name = 'geometry'`
+    )
+
+    if (colCheck.rows.length === 0) {
+      console.warn('detectSegmentOverlaps: geometry column does not exist. Run database migration.')
+      return []
+    }
+
     const result = await client.query(
       `SELECT
         a.id as segment1_id,

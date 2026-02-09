@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
 import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
@@ -190,6 +190,8 @@ function ApprovedSegmentsOverlay() {
   const map = useMap()
   const [approvedSegments, setApprovedSegments] = useState<ApprovedSegment[]>([])
   const [loading, setLoading] = useState(false)
+  const [hasFetched, setHasFetched] = useState(false)
+  const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const fetchApprovedSegments = useCallback(async () => {
     if (!map) return
@@ -210,6 +212,7 @@ function ApprovedSegmentsOverlay() {
       if (response.ok) {
         const data = await response.json()
         setApprovedSegments(data.segments || [])
+        setHasFetched(true)
       }
     } catch (error) {
       console.error('Error fetching approved segments:', error)
@@ -218,17 +221,30 @@ function ApprovedSegmentsOverlay() {
     }
   }, [map])
 
-  // Fetch on mount and when map moves
-  useEffect(() => {
-    fetchApprovedSegments()
+  // Debounced fetch - only fetch after map stops moving for 500ms
+  const debouncedFetch = useCallback(() => {
+    if (fetchTimeoutRef.current) {
+      clearTimeout(fetchTimeoutRef.current)
+    }
+    fetchTimeoutRef.current = setTimeout(() => {
+      fetchApprovedSegments()
+    }, 500)
   }, [fetchApprovedSegments])
 
+  // Fetch once on mount only
+  useEffect(() => {
+    if (!hasFetched) {
+      fetchApprovedSegments()
+    }
+  }, [hasFetched, fetchApprovedSegments])
+
+  // Debounced updates on map movement
   useMapEvents({
     moveend: () => {
-      fetchApprovedSegments()
+      debouncedFetch()
     },
     zoomend: () => {
-      fetchApprovedSegments()
+      debouncedFetch()
     }
   })
 
