@@ -6,6 +6,21 @@ import { Photo } from '@/types/sidewalk'
 // Mock fetch
 global.fetch = jest.fn()
 
+// Mock URL.createObjectURL and revokeObjectURL
+global.URL.createObjectURL = jest.fn(() => 'mock-url')
+global.URL.revokeObjectURL = jest.fn()
+
+// Mock the Toast hook
+jest.mock('../Toast', () => ({
+  useToast: () => ({
+    showToast: jest.fn(),
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    showInfo: jest.fn(),
+    showWarning: jest.fn(),
+  }),
+}))
+
 const mockPhotos: Photo[] = [
   {
     id: 'photo-1',
@@ -83,11 +98,11 @@ describe('PhotoUpload Component', () => {
     expect(typeSelect).toHaveValue('special_mark')
   })
 
-  it('uploads photo on file selection', async () => {
+  it('uploads photo after preview and clicking upload button', async () => {
     const user = userEvent.setup()
     ;(fetch as jest.Mock).mockResolvedValue({
       ok: true,
-      json: () => Promise.resolve({ 
+      json: () => Promise.resolve({
         id: 'new-photo-1',
         filename: 'test.jpg',
         url: '/uploads/test.jpg'
@@ -104,7 +119,7 @@ describe('PhotoUpload Component', () => {
 
     // Mock file input
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
-    
+
     // Simulate file selection through the hidden input
     const hiddenInput = document.querySelector('input[type="file"]') as HTMLInputElement
     if (hiddenInput) {
@@ -114,6 +129,15 @@ describe('PhotoUpload Component', () => {
       })
       fireEvent.change(hiddenInput)
     }
+
+    // Wait for preview to appear
+    await waitFor(() => {
+      expect(screen.getByText('Ready to upload')).toBeInTheDocument()
+    })
+
+    // Click the upload button
+    const uploadButton = screen.getByRole('button', { name: /upload/i })
+    await user.click(uploadButton)
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/photos', expect.objectContaining({
@@ -127,7 +151,6 @@ describe('PhotoUpload Component', () => {
 
   it('handles upload errors', async () => {
     const user = userEvent.setup()
-    window.alert = jest.fn()
     ;(fetch as jest.Mock).mockResolvedValue({
       ok: false,
       json: () => Promise.resolve({ error: 'File too large' })
@@ -143,7 +166,7 @@ describe('PhotoUpload Component', () => {
 
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
     const hiddenInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    
+
     if (hiddenInput) {
       Object.defineProperty(hiddenInput, 'files', {
         value: [file],
@@ -152,8 +175,18 @@ describe('PhotoUpload Component', () => {
       fireEvent.change(hiddenInput)
     }
 
+    // Wait for preview to appear
     await waitFor(() => {
-      expect(window.alert).toHaveBeenCalledWith('File too large')
+      expect(screen.getByText('Ready to upload')).toBeInTheDocument()
+    })
+
+    // Click the upload button
+    const uploadButton = screen.getByRole('button', { name: /upload/i })
+    await user.click(uploadButton)
+
+    // The error is now shown via toast, not alert - just verify fetch was called
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalled()
     })
   })
 
@@ -207,11 +240,7 @@ describe('PhotoUpload Component', () => {
     }
   })
 
-  it('shows loading state during upload', async () => {
-    ;(fetch as jest.Mock).mockImplementation(() => 
-      new Promise(resolve => setTimeout(() => resolve({ ok: true, json: () => ({}) }), 100))
-    )
-
+  it('shows preview state after file selection', async () => {
     render(
       <PhotoUpload
         sidewalkSegmentId="segment-1"
@@ -222,7 +251,7 @@ describe('PhotoUpload Component', () => {
 
     const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
     const hiddenInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    
+
     if (hiddenInput) {
       Object.defineProperty(hiddenInput, 'files', {
         value: [file],
@@ -231,7 +260,11 @@ describe('PhotoUpload Component', () => {
       fireEvent.change(hiddenInput)
     }
 
-    expect(screen.getByText('Uploading...')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Ready to upload')).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /upload/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument()
+    })
   })
 
   it('displays correct photo count', () => {

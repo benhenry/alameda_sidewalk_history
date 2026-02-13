@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker } from 'react-leaflet'
 import L from 'leaflet'
-import { Trash2, Undo, Check, AlertTriangle, Search } from 'lucide-react'
+import { Trash2, Undo, Check, AlertTriangle, Search, Loader2 } from 'lucide-react'
+import { useToast } from './Toast'
 
 interface ApprovedSegment {
   id: string
@@ -30,13 +31,15 @@ function DrawingEvents({
   onStreetDetected,
   coordinates,
   setCoordinates,
-  sidewalkData
+  sidewalkData,
+  onSnapError
 }: {
   onCoordinatesChange: (coords: [number, number][]) => void
   onStreetDetected?: (street: string | null) => void
   coordinates: [number, number][]
   setCoordinates: (coords: [number, number][]) => void
   sidewalkData?: [number, number][][]
+  onSnapError?: (message: string) => void
 }) {
   const [snapping, setSnapping] = useState(false)
 
@@ -86,7 +89,7 @@ function DrawingEvents({
 
         // Require snapping when sidewalk data is available
         if (sidewalkData && sidewalkData.length > 0 && !result) {
-          alert('No nearby sidewalk found. Please click closer to the blue reference lines (within 50 meters of actual sidewalk locations).')
+          onSnapError?.('No nearby sidewalk found. Click closer to the reference lines (within 50m).')
           return
         }
 
@@ -186,12 +189,17 @@ function SidewalkOverlay({ sidewalkData }: { sidewalkData?: [number, number][][]
   )
 }
 
-function ApprovedSegmentsOverlay() {
+function ApprovedSegmentsOverlay({ onLoadingChange }: { onLoadingChange?: (loading: boolean) => void }) {
   const map = useMap()
   const [approvedSegments, setApprovedSegments] = useState<ApprovedSegment[]>([])
   const [loading, setLoading] = useState(false)
   const [hasFetched, setHasFetched] = useState(false)
   const fetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Notify parent of loading state
+  useEffect(() => {
+    onLoadingChange?.(loading)
+  }, [loading, onLoadingChange])
 
   const fetchApprovedSegments = useCallback(async () => {
     if (!map) return
@@ -282,7 +290,13 @@ function ApprovedSegmentsOverlay() {
   )
 }
 
-function MapSearch({ onLocationFound }: { onLocationFound: (lat: number, lng: number) => void }) {
+function MapSearch({
+  onLocationFound,
+  onSearchError
+}: {
+  onLocationFound: (lat: number, lng: number) => void
+  onSearchError?: (message: string) => void
+}) {
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
 
@@ -298,17 +312,17 @@ function MapSearch({ onLocationFound }: { onLocationFound: (lat: number, lng: nu
         )}&limit=1`
       )
       const results = await response.json()
-      
+
       if (results.length > 0) {
         const { lat, lon } = results[0]
         onLocationFound(parseFloat(lat), parseFloat(lon))
         setSearchQuery('')
       } else {
-        alert('Location not found. Try searching for a street name or address in Alameda.')
+        onSearchError?.('Location not found. Try a street name or address in Alameda.')
       }
     } catch (error) {
       console.error('Search error:', error)
-      alert('Search failed. Please try again.')
+      onSearchError?.('Search failed. Please try again.')
     } finally {
       setIsSearching(false)
     }
@@ -368,6 +382,8 @@ export default function InteractiveSegmentDrawer({
   const [isClient, setIsClient] = useState(false)
   const [searchLat, setSearchLat] = useState<number>()
   const [searchLng, setSearchLng] = useState<number>()
+  const [loadingApproved, setLoadingApproved] = useState(false)
+  const { showWarning, showError } = useToast()
 
   useEffect(() => {
     setIsClient(true)
@@ -396,7 +412,7 @@ export default function InteractiveSegmentDrawer({
   return (
     <div className="space-y-4">
       {/* Search */}
-      <MapSearch onLocationFound={handleLocationFound} />
+      <MapSearch onLocationFound={handleLocationFound} onSearchError={showError} />
       
       {/* Instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -432,7 +448,7 @@ export default function InteractiveSegmentDrawer({
           <MapController searchLat={searchLat} searchLng={searchLng} />
 
           {/* Show approved segments overlay (green) */}
-          {showApprovedSegments && <ApprovedSegmentsOverlay />}
+          {showApprovedSegments && <ApprovedSegmentsOverlay onLoadingChange={setLoadingApproved} />}
 
           {/* Show reference sidewalk overlay (blue) */}
           <SidewalkOverlay sidewalkData={sidewalkData} />
@@ -444,6 +460,7 @@ export default function InteractiveSegmentDrawer({
             coordinates={coordinates}
             setCoordinates={setCoordinates}
             sidewalkData={sidewalkData}
+            onSnapError={showWarning}
           />
           
           {/* Show drawn segment */}
@@ -470,6 +487,14 @@ export default function InteractiveSegmentDrawer({
             />
           ))}
         </MapContainer>
+
+        {/* Loading indicator for approved segments */}
+        {loadingApproved && (
+          <div className="absolute top-2 left-2 z-[1000] bg-white/90 rounded-lg px-3 py-2 shadow-sm flex items-center gap-2 text-sm text-gray-600">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading segments...
+          </div>
+        )}
 
         {/* Control buttons overlay */}
         <div className="absolute top-2 right-2 flex gap-2 z-[1000]">

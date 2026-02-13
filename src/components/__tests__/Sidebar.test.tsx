@@ -12,6 +12,17 @@ jest.mock('../../lib/auth-context', () => ({
   useAuth: () => mockUseAuth,
 }))
 
+// Mock the Toast hook
+jest.mock('../Toast', () => ({
+  useToast: () => ({
+    showToast: jest.fn(),
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    showInfo: jest.fn(),
+    showWarning: jest.fn(),
+  }),
+}))
+
 // Mock the modal components
 jest.mock('../AuthModal', () => {
   return function MockAuthModal({ isOpen, onClose }: any) {

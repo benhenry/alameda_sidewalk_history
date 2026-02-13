@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Search, Filter, Calendar, User, MapPin, Camera, LogIn, Plus } from 'lucide-react'
+import { useState } from 'react'
+import { Search, Filter, Calendar, User, MapPin, Camera, LogIn, ChevronUp, Navigation } from 'lucide-react'
 import { FilterOptions, Contractor, SidewalkSegment } from '@/types/sidewalk'
 import { useAuth } from '@/lib/auth-context'
 import AuthModal from './AuthModal'
 import UserMenu from './UserMenu'
+import { useToast } from './Toast'
 
 interface SidebarProps {
   contractors: Contractor[]
@@ -14,6 +15,7 @@ interface SidebarProps {
   filters: FilterOptions
   onFiltersChange: (filters: FilterOptions) => void
   selectedSegment?: SidewalkSegment
+  onLocationSearch?: (lat: number, lng: number) => void
 }
 
 export default function Sidebar({
@@ -22,18 +24,50 @@ export default function Sidebar({
   visibleSegments,
   filters,
   onFiltersChange,
-  selectedSegment
+  selectedSegment,
+  onLocationSearch
 }: SidebarProps) {
   const [searchTerm, setSearchTerm] = useState('')
+  const [locationSearch, setLocationSearch] = useState('')
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false)
   const [showFilters, setShowFilters] = useState(true)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [mobileCollapsed, setMobileCollapsed] = useState(false)
 
   const { user, loading } = useAuth()
+  const { showError } = useToast()
 
   // Use visible segments for legend if available, otherwise all segments
   const legendSegments = visibleSegments || segments
 
   const years = Array.from(new Set(legendSegments.map(s => s.year))).sort()
+
+  const handleLocationSearch = async () => {
+    if (!locationSearch.trim() || !onLocationSearch) return
+
+    setIsSearchingLocation(true)
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+          locationSearch + ', Alameda, CA'
+        )}&limit=1`
+      )
+      const results = await response.json()
+
+      if (results.length > 0) {
+        const { lat, lon } = results[0]
+        onLocationSearch(parseFloat(lat), parseFloat(lon))
+        setLocationSearch('')
+      } else {
+        showError('Location not found. Try a street name or address.')
+      }
+    } catch (error) {
+      console.error('Location search error:', error)
+      showError('Search failed. Please try again.')
+    } finally {
+      setIsSearchingLocation(false)
+    }
+  }
   const decades = Array.from(new Set(years.map(y => Math.floor(y / 10) * 10))).sort()
   const streets = Array.from(new Set(legendSegments.map(s => s.street))).sort()
 
@@ -43,7 +77,17 @@ export default function Sidebar({
 
   return (
     <>
-      <div className="sidebar p-4">
+      <div className={`sidebar p-4 ${mobileCollapsed ? 'collapsed' : ''}`}>
+        {/* Mobile toggle handle */}
+        <div
+          className="sidebar-toggle md:hidden"
+          onClick={() => setMobileCollapsed(!mobileCollapsed)}
+          role="button"
+          aria-label={mobileCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <ChevronUp className={`h-5 w-5 text-gray-400 transition-transform ${mobileCollapsed ? 'rotate-180' : ''}`} />
+        </div>
+
         <div className="mb-6">
           <div className="flex justify-between items-start mb-2">
             <h1 className="text-2xl font-bold text-gray-800">
@@ -80,7 +124,40 @@ export default function Sidebar({
           )}
         </div>
 
-      {/* Search */}
+      {/* Location Search */}
+      {onLocationSearch && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            <Navigation className="inline h-4 w-4 mr-1" />
+            Go to Location
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Street or address..."
+              value={locationSearch}
+              onChange={(e) => setLocationSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleLocationSearch()}
+              className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+              disabled={isSearchingLocation}
+            />
+            <button
+              onClick={handleLocationSearch}
+              disabled={isSearchingLocation || !locationSearch.trim()}
+              className="px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Search location"
+            >
+              {isSearchingLocation ? (
+                <span className="animate-spin">...</span>
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Contractor Search */}
       <div className="mb-4">
         <div className="relative">
           <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -90,6 +167,7 @@ export default function Sidebar({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            aria-label="Search contractors"
           />
         </div>
       </div>
@@ -220,8 +298,35 @@ export default function Sidebar({
         </div>
       )}
 
+      {/* Empty State */}
+      {segments.length === 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4" role="status">
+          <p className="text-yellow-800 font-medium mb-1">No segments yet</p>
+          <p className="text-yellow-700 text-sm">
+            Be the first to document the sidewalk history in this area!
+            {user ? ' Click the "Contribute" button to add a segment.' : ' Sign in to contribute.'}
+          </p>
+        </div>
+      )}
+
+      {/* No Results State */}
+      {segments.length > 0 && legendSegments.length === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4" role="status">
+          <p className="text-blue-800 font-medium mb-1">No matching segments</p>
+          <p className="text-blue-700 text-sm">
+            Try adjusting your filters or zooming out to see more segments.
+          </p>
+          <button
+            onClick={() => onFiltersChange({})}
+            className="mt-2 text-sm text-blue-600 hover:text-blue-800 underline"
+          >
+            Clear all filters
+          </button>
+        </div>
+      )}
+
       {/* Statistics */}
-      <div className="bg-gray-50 rounded-lg p-4">
+      <div className="bg-gray-50 rounded-lg p-4" role="region" aria-label="Statistics">
         <h3 className="font-bold text-gray-800 mb-2">Statistics</h3>
         <div className="space-y-1 text-sm text-gray-600">
           <p>Total segments: {segments.length}</p>

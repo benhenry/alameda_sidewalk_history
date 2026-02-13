@@ -7,6 +7,7 @@
   width: 100%;
 }
 
+/* Desktop sidebar */
 .sidebar {
   position: fixed;
   top: 0;
@@ -18,4 +19,62 @@
   z-index: 1000;
   overflow-y: auto;
   box-shadow: 2px 0 4px rgba(0,0,0,0.1);
+}
+
+/* Mobile sidebar - bottom sheet pattern */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+    max-height: 60vh;
+    width: 100%;
+    border-right: none;
+    border-top: 1px solid #e5e7eb;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease-in-out;
+  }
+
+  .sidebar.collapsed {
+    transform: translateY(calc(100% - 60px));
+  }
+
+  .sidebar-toggle {
+    display: flex;
+    justify-content: center;
+    padding: 8px;
+    cursor: pointer;
+  }
+
+  .sidebar-toggle::before {
+    content: '';
+    width: 40px;
+    height: 4px;
+    background: #d1d5db;
+    border-radius: 2px;
+  }
+
+  .leaflet-container {
+    height: calc(100vh - 60px);
+  }
+}
+
+/* Toast animation */
+@keyframes slide-in {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in {
+  animation: slide-in 0.3s ease-out;
 }

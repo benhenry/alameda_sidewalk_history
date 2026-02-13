@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { AlertTriangle, RefreshCw, Check, Trash2, Eye, Search } from 'lucide-react'
 import { authenticatedFetch, handleApiError } from '@/lib/api'
+import { useToast } from './Toast'
 
 interface Conflict {
   id: string
@@ -32,6 +33,7 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
   const [detecting, setDetecting] = useState(false)
   const [processingConflicts, setProcessingConflicts] = useState<Set<string>>(new Set())
   const [activeTab, setActiveTab] = useState<'open' | 'all'>('open')
+  const { showSuccess, showError, showInfo } = useToast()
 
   useEffect(() => {
     loadConflicts()
@@ -65,11 +67,11 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
         throw new Error('Failed to run detection')
       }
       const data = await response.json()
-      alert(`Detection complete: ${data.detected} overlaps found`)
+      showInfo(`Detection complete: ${data.detected} overlaps found`)
       await loadConflicts()
     } catch (error) {
       console.error('Error running detection:', error)
-      alert('Failed to run overlap detection')
+      showError('Failed to run overlap detection')
     } finally {
       setDetecting(false)
     }
@@ -112,10 +114,10 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
       }
 
       await loadConflicts()
-      alert('Conflict resolved successfully!')
+      showSuccess('Conflict resolved successfully!')
     } catch (error) {
       console.error('Error resolving conflict:', error)
-      alert('Failed to resolve conflict')
+      showError('Failed to resolve conflict')
     } finally {
       setProcessingConflicts(prev => {
         const newSet = new Set(prev)

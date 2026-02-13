@@ -3,6 +3,17 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import '@testing-library/jest-dom'
 import InteractiveSegmentDrawer from '../InteractiveSegmentDrawer'
 
+// Mock the Toast hook
+jest.mock('../Toast', () => ({
+  useToast: () => ({
+    showToast: jest.fn(),
+    showSuccess: jest.fn(),
+    showError: jest.fn(),
+    showInfo: jest.fn(),
+    showWarning: jest.fn(),
+  }),
+}))
+
 // Mock react-leaflet components (already handled by __mocks__)
 
 describe('InteractiveSegmentDrawer', () => {

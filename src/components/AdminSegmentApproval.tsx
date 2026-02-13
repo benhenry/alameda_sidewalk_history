@@ -5,6 +5,7 @@ import { CheckCircle, XCircle, Clock, User, MapPin, Calendar, AlertTriangle, Eye
 import { SidewalkSegment } from '@/types/sidewalk'
 import { authenticatedFetch, handleApiError } from '@/lib/api'
 import AdminSegmentEditor from './AdminSegmentEditor'
+import { useToast } from './Toast'
 
 interface AdminSegment extends SidewalkSegment {
   status: 'pending' | 'approved' | 'rejected'
@@ -27,6 +28,7 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
   const [loading, setLoading] = useState(true)
   const [processingSegments, setProcessingSegments] = useState<Set<string>>(new Set())
   const [editingSegment, setEditingSegment] = useState<AdminSegment | null>(null)
+  const { showSuccess, showError } = useToast()
 
   useEffect(() => {
     loadSegments()
@@ -56,7 +58,7 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
       setAllSegments(all)
     } catch (error) {
       console.error('Error loading segments:', error)
-      alert('Failed to load segments for approval')
+      showError('Failed to load segments for approval')
     } finally {
       setLoading(false)
     }
@@ -82,10 +84,10 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
       await loadSegments()
 
       const actionText = action === 'approve' ? 'approved' : 'rejected'
-      alert(`Segment ${actionText} successfully!`)
+      showSuccess(`Segment ${actionText} successfully!`)
     } catch (error) {
       console.error(`Error ${action}ing segment:`, error)
-      alert(`Failed to ${action} segment`)
+      showError(`Failed to ${action} segment`)
     } finally {
       setProcessingSegments(prev => {
         const newSet = new Set(prev)
@@ -103,7 +105,7 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
     // Reload segments after edit
     await loadSegments()
     setEditingSegment(null)
-    alert('Segment updated successfully!')
+    showSuccess('Segment updated successfully!')
   }
 
   const handleDelete = async (segmentId: string) => {
@@ -127,10 +129,10 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
 
       // Reload data
       await loadSegments()
-      alert('Segment deleted successfully!')
+      showSuccess('Segment deleted successfully!')
     } catch (error) {
       console.error('Error deleting segment:', error)
-      alert('Failed to delete segment')
+      showError('Failed to delete segment')
     } finally {
       setProcessingSegments(prev => {
         const newSet = new Set(prev)
