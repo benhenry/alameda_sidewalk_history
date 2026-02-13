@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllSegments, createSegment, updateContractorStats } from '@/lib/database'
-import { auth } from '@/auth'
+import { getAuthUser } from '@/lib/get-auth-user'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Authenticate using Auth.js session
-    const session = await auth()
-    if (!session?.user) {
+    // Authenticate user (works with both Auth.js and dev auth)
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       block,
       notes: notes || undefined,
       specialMarks,
-      createdBy: session.user.id,
+      createdBy: user.id,
       status: 'pending'
     })
 

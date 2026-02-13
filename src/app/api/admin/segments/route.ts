@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSegments, updateSegmentStatus } from '@/lib/database'
-import { auth } from '@/auth'
+import { getAuthUser, AuthError } from '@/lib/get-auth-user'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Authenticate using Auth.js session
-    const session = await auth()
-    if (!session?.user) {
+    // Authenticate user (works with both Auth.js and dev auth)
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     // Check if user is admin
-    if (session.user.role !== 'admin') {
+    if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
@@ -31,18 +31,18 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Authenticate using Auth.js session
-    const session = await auth()
-    if (!session?.user) {
+    // Authenticate user (works with both Auth.js and dev auth)
+    const user = await getAuthUser(request)
+    if (!user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
     // Check if user is admin
-    if (session.user.role !== 'admin') {
+    if (user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 
-    const userId = session.user.id
+    const userId = user.id
 
     const body = await request.json()
     const { segmentId, action } = body

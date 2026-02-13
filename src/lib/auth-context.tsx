@@ -3,6 +3,7 @@
 import React, { createContext, useContext } from 'react'
 import { useSession, signOut } from 'next-auth/react'
 import { Session } from 'next-auth'
+import { useDevAuth } from './dev-auth'
 
 interface AuthUser {
   id: string
@@ -22,7 +23,24 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-export function useAuth() {
+const isDev = process.env.NODE_ENV === 'development'
+
+export function useAuth(): AuthContextType {
+  // In development, use the dev auth context
+  if (isDev) {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const devAuth = useDevAuth()
+    return {
+      user: devAuth.user,
+      loading: devAuth.loading,
+      logout: devAuth.logout,
+      isAdmin: devAuth.isAdmin,
+      session: devAuth.session,
+    }
+  }
+
+  // In production, use the real auth context
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const context = useContext(AuthContext)
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider')

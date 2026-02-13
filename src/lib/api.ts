@@ -1,7 +1,20 @@
 export async function authenticatedFetch(url: string, options: RequestInit = {}) {
-  const headers = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
+    ...(options.headers as Record<string, string>),
+  }
+
+  // In development, add dev auth header if user is logged in via dev auth
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    const devUser = localStorage.getItem('dev-auth-user')
+    if (devUser) {
+      try {
+        const user = JSON.parse(devUser)
+        headers['x-dev-user'] = user.role // 'admin' or 'user'
+      } catch (e) {
+        // Ignore parse errors
+      }
+    }
   }
 
   return fetch(url, {
