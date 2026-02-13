@@ -248,6 +248,15 @@ function ApprovedSegmentsOverlay() {
     }
   })
 
+  // Cleanup timeout on unmount to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current)
+      }
+    }
+  }, [])
+
   // Convert GeoJSON coordinates [lng, lat] to Leaflet [lat, lng]
   const convertCoords = (coords: [number, number][]): [number, number][] => {
     return coords.map(([lng, lat]) => [lat, lng])

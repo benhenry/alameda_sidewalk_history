@@ -228,7 +228,7 @@ export default function Sidebar({
         <div className="space-y-1 text-sm text-gray-600">
           <p>Total segments: {segments.length}</p>
           <p>Contractors: {contractors.length}</p>
-          <p>Year range: {Math.min(...years)} - {Math.max(...years)}</p>
+          <p>Year range: {years.length > 0 ? `${Math.min(...years)} - ${Math.max(...years)}` : 'N/A'}</p>
         </div>
       </div>
       </div>

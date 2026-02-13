@@ -5,22 +5,20 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sendTestEmail } from '@/lib/email'
-import { verifyToken } from '@/lib/auth'
+import { auth } from '@/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify admin authentication
-    const authHeader = request.headers.get('authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'No token provided' }, { status: 401 })
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
     }
 
-    const token = authHeader.substring(7)
-    const user = verifyToken(token)
-
-    if (!user || user.role !== 'admin') {
+    // Check admin role
+    if (session.user.role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
     }
 

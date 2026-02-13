@@ -1,15 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { deletePhoto } from '@/lib/database'
+import { deletePhoto, getPhotosBySegmentId, getSegmentById } from '@/lib/database'
 import { deleteFile } from '@/lib/storage'
+import { auth } from '@/auth'
+
+export const dynamic = 'force-dynamic'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Only admins can delete photos (or we could check segment ownership)
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required to delete photos' }, { status: 403 })
+    }
+
     // Delete from database (this will also handle file deletion via storage service)
     const success = await deletePhoto(params.id)
-    
+
     if (!success) {
       return NextResponse.json({ error: 'Photo not found' }, { status: 404 })
     }
@@ -26,6 +40,17 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Only admins can update photos
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required to update photos' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { caption, type } = body
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { Plus, Edit, Trash2, MapPin, Camera, Upload } from 'lucide-react'
 import SegmentForm from '@/components/SegmentForm'
@@ -25,6 +25,16 @@ export default function AdminPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingSegment, setEditingSegment] = useState<SidewalkSegment | undefined>()
   const [loading, setLoading] = useState(true)
+  const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Cleanup preview timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -62,10 +72,9 @@ export default function AdminPage() {
     try {
       const url = editingSegment ? `/api/segments/${editingSegment.id}` : '/api/segments'
       const method = editingSegment ? 'PUT' : 'POST'
-      
-      const response = await fetch(url, {
+
+      const response = await authenticatedFetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(segmentData)
       })
 
@@ -111,13 +120,18 @@ export default function AdminPage() {
   }
 
   const handlePreviewSegment = (segment: SidewalkSegment) => {
+    // Clear any existing preview timeout
+    if (previewTimeoutRef.current) {
+      clearTimeout(previewTimeoutRef.current)
+    }
+
     setHighlightedSegmentId(segment.id)
     setZoomToSegmentId(segment.id)
     setSelectedSegment(segment)
     setAdminPreviewMode(true)
-    
+
     // Clear preview mode and zoom after 10 seconds
-    setTimeout(() => {
+    previewTimeoutRef.current = setTimeout(() => {
       setHighlightedSegmentId(undefined)
       setZoomToSegmentId(undefined)
       setAdminPreviewMode(false)

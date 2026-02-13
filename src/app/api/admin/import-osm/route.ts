@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { auth } from '@/auth'
 
 const execAsync = promisify(exec)
 
@@ -13,12 +14,20 @@ export const dynamic = 'force-dynamic'
  * Runs the import script which fetches data from Overpass API and
  * imports it into the reference_sidewalks table.
  *
- * Requires admin role in request headers.
+ * Requires admin role via Auth.js session.
  */
 export async function POST(request: NextRequest) {
-  // Check admin authorization
-  const userRole = request.headers.get('x-user-role')
-  if (userRole !== 'admin') {
+  // Authenticate using Auth.js session
+  const session = await auth()
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    )
+  }
+
+  // Check admin role
+  if (session.user.role !== 'admin') {
     return NextResponse.json(
       { error: 'Unauthorized. Admin access required.' },
       { status: 403 }

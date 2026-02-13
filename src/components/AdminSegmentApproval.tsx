@@ -99,9 +99,9 @@ export default function AdminSegmentApproval({ onPreviewSegment, sidewalkData }:
     setEditingSegment(segment)
   }
 
-  const handleEditSave = (updatedSegment: SidewalkSegment) => {
+  const handleEditSave = async (updatedSegment: SidewalkSegment) => {
     // Reload segments after edit
-    loadSegments()
+    await loadSegments()
     setEditingSegment(null)
     alert('Segment updated successfully!')
   }
