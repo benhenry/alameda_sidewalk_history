@@ -56,7 +56,10 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
   const runDetection = async () => {
     setDetecting(true)
     try {
-      const response = await authenticatedFetch('/api/admin/conflicts?detect=true&minOverlap=1')
+      const response = await authenticatedFetch('/api/admin/conflicts', {
+        method: 'POST',
+        body: JSON.stringify({ minOverlapMeters: 1 })
+      })
       if (!response.ok) {
         handleApiError(response)
         throw new Error('Failed to run detection')

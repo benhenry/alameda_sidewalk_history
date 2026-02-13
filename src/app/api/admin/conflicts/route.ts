@@ -14,7 +14,6 @@ export const dynamic = 'force-dynamic'
  * Lists all segment conflicts (overlaps).
  * Query params:
  *   - status: 'open' | 'resolved' | 'accepted' (optional)
- *   - detect: 'true' to run fresh detection (optional)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -31,29 +30,8 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url)
     const status = searchParams.get('status')
-    const detect = searchParams.get('detect')
 
-    // If detect=true, run fresh overlap detection
-    if (detect === 'true') {
-      const minOverlapMeters = parseFloat(searchParams.get('minOverlap') || '1')
-      const overlaps = await detectSegmentOverlaps(minOverlapMeters)
-
-      // Create or update conflict records
-      for (const overlap of overlaps) {
-        await createSegmentConflict({
-          segment1Id: overlap.segment1_id,
-          segment2Id: overlap.segment2_id,
-          overlapLengthMeters: overlap.overlap_meters
-        })
-      }
-
-      return NextResponse.json({
-        detected: overlaps.length,
-        message: `Detected ${overlaps.length} segment overlaps`
-      })
-    }
-
-    // Otherwise, return existing conflicts
+    // Return existing conflicts
     const conflicts = await getSegmentConflicts(status || undefined)
 
     return NextResponse.json({
@@ -64,6 +42,53 @@ export async function GET(request: NextRequest) {
     console.error('Error fetching conflicts:', error)
     return NextResponse.json(
       { error: 'Failed to fetch conflicts' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * POST /api/admin/conflicts
+ *
+ * Run fresh overlap detection and create conflict records.
+ * Body params:
+ *   - minOverlapMeters: number (optional, default 1)
+ */
+export async function POST(request: NextRequest) {
+  try {
+    // Authenticate using Auth.js session
+    const session = await auth()
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
+    }
+
+    // Check if user is admin
+    if (session.user.role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 })
+    }
+
+    const body = await request.json().catch(() => ({}))
+    const minOverlapMeters = body.minOverlapMeters || 1
+
+    const overlaps = await detectSegmentOverlaps(minOverlapMeters)
+
+    // Create or update conflict records
+    for (const overlap of overlaps) {
+      await createSegmentConflict({
+        segment1Id: overlap.segment1_id,
+        segment2Id: overlap.segment2_id,
+        overlapLengthMeters: overlap.overlap_meters
+      })
+    }
+
+    return NextResponse.json({
+      detected: overlaps.length,
+      message: `Detected ${overlaps.length} segment overlaps`
+    })
+  } catch (error) {
+    console.error('Error detecting conflicts:', error)
+    return NextResponse.json(
+      { error: 'Failed to detect conflicts' },
       { status: 500 }
     )
   }
