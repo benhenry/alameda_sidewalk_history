@@ -240,3 +240,59 @@ CREATE INDEX IF NOT EXISTS idx_segment_corrections_segment ON segment_correction
 CREATE INDEX IF NOT EXISTS idx_segment_corrections_date ON segment_corrections(corrected_at);
 
 COMMENT ON TABLE segment_corrections IS 'History of segment coordinate corrections for audit trail';
+
+-- ============================================================================
+-- Segment Edit History Table
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS segment_edit_history (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    segment_id UUID NOT NULL REFERENCES sidewalk_segments(id) ON DELETE CASCADE,
+    edited_by UUID REFERENCES users(id) ON DELETE SET NULL,
+    edited_by_username VARCHAR(100),
+    edit_type VARCHAR(20) NOT NULL CHECK (edit_type IN ('create', 'update', 'approve', 'reject')),
+    field_changes JSONB NOT NULL DEFAULT '{}',
+    previous_values JSONB DEFAULT '{}',
+    new_values JSONB DEFAULT '{}',
+    notes TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_segment_edit_history_segment ON segment_edit_history(segment_id);
+CREATE INDEX IF NOT EXISTS idx_segment_edit_history_date ON segment_edit_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_segment_edit_history_user ON segment_edit_history(edited_by);
+
+COMMENT ON TABLE segment_edit_history IS 'Complete edit history for all segment changes';
+COMMENT ON COLUMN segment_edit_history.edit_type IS 'Type of edit: create, update, approve, or reject';
+COMMENT ON COLUMN segment_edit_history.field_changes IS 'List of fields that were changed';
+COMMENT ON COLUMN segment_edit_history.previous_values IS 'Field values before the edit';
+COMMENT ON COLUMN segment_edit_history.new_values IS 'Field values after the edit';
+
+-- ============================================================================
+-- Segment Comments Table
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS segment_comments (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    segment_id UUID NOT NULL REFERENCES sidewalk_segments(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    username VARCHAR(100),
+    content TEXT NOT NULL,
+    parent_id UUID REFERENCES segment_comments(id) ON DELETE CASCADE,
+    is_edited BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_segment_comments_segment ON segment_comments(segment_id);
+CREATE INDEX IF NOT EXISTS idx_segment_comments_user ON segment_comments(user_id);
+CREATE INDEX IF NOT EXISTS idx_segment_comments_parent ON segment_comments(parent_id);
+CREATE INDEX IF NOT EXISTS idx_segment_comments_created ON segment_comments(created_at);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_segment_comments_updated_at
+    BEFORE UPDATE ON segment_comments
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+COMMENT ON TABLE segment_comments IS 'User comments and discussions on sidewalk segments';
+COMMENT ON COLUMN segment_comments.parent_id IS 'For threaded replies, references the parent comment';

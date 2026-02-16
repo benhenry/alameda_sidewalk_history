@@ -395,6 +395,66 @@ export function stringifySpecialMarks(marks: string[]): string {
   return JSON.stringify(marks)
 }
 
+// Edit history functions
+export async function createSegmentEditHistory(data: {
+  segmentId: string
+  editedBy?: string
+  editedByUsername?: string
+  editType: 'create' | 'update' | 'approve' | 'reject'
+  fieldChanges: string[]
+  previousValues?: Record<string, any>
+  newValues?: Record<string, any>
+  notes?: string
+}): Promise<any> {
+  const dbModule = await getDbModule()
+  return dbModule.createSegmentEditHistory(data)
+}
+
+export async function getSegmentEditHistory(segmentId: string): Promise<any[]> {
+  const dbModule = await getDbModule()
+  return dbModule.getSegmentEditHistory(segmentId)
+}
+
+export async function getRecentEditHistory(limit: number = 50): Promise<any[]> {
+  const dbModule = await getDbModule()
+  return dbModule.getRecentEditHistory(limit)
+}
+
+// Segment comments functions
+export async function createSegmentComment(data: {
+  segmentId: string
+  userId?: string
+  username?: string
+  content: string
+  parentId?: string
+}): Promise<any> {
+  const dbModule = await getDbModule()
+  return dbModule.createSegmentComment(data)
+}
+
+export async function getSegmentComments(segmentId: string): Promise<any[]> {
+  const dbModule = await getDbModule()
+  return dbModule.getSegmentComments(segmentId)
+}
+
+export async function updateSegmentComment(
+  commentId: string,
+  content: string
+): Promise<any> {
+  const dbModule = await getDbModule()
+  return dbModule.updateSegmentComment(commentId, content)
+}
+
+export async function deleteSegmentComment(commentId: string): Promise<boolean> {
+  const dbModule = await getDbModule()
+  return dbModule.deleteSegmentComment(commentId)
+}
+
+export async function getCommentById(commentId: string): Promise<any> {
+  const dbModule = await getDbModule()
+  return dbModule.getCommentById(commentId)
+}
+
 // For legacy compatibility
 export default {
   initDatabase,

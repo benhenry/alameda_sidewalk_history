@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { SidewalkSegment, FilterOptions } from '@/types/sidewalk'
-import { Info } from 'lucide-react'
+import { Info, Keyboard } from 'lucide-react'
 
 // Fix for default markers in react-leaflet
 if (typeof window !== 'undefined') {
@@ -110,7 +110,7 @@ function MapEvents({
 
 function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, segments: SidewalkSegment[] }) {
   const map = useMap()
-  
+
   useEffect(() => {
     if (zoomToSegment && segments.length > 0) {
       const segment = segments.find(s => s.id === zoomToSegment)
@@ -118,10 +118,10 @@ function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, se
         // Calculate bounds for the segment
         const latLngs = segment.coordinates.map(coord => L.latLng(coord[0], coord[1]))
         const bounds = L.latLngBounds(latLngs)
-        
+
         // Add some padding to the bounds
         const paddedBounds = bounds.pad(0.1)
-        
+
         // Fit the map to the segment bounds
         map.fitBounds(paddedBounds, {
           maxZoom: 18,
@@ -131,7 +131,97 @@ function MapController({ zoomToSegment, segments }: { zoomToSegment?: string, se
       }
     }
   }, [zoomToSegment, segments, map])
-  
+
+  return null
+}
+
+// Keyboard navigation component for accessibility
+function KeyboardNavigation({
+  segments,
+  focusedSegmentIndex,
+  onFocusChange,
+  onSegmentSelect
+}: {
+  segments: SidewalkSegment[]
+  focusedSegmentIndex: number
+  onFocusChange: (index: number) => void
+  onSegmentSelect: (segment: SidewalkSegment) => void
+}) {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if map container or its children have focus
+      if (!container.contains(document.activeElement) && document.activeElement !== container) {
+        return
+      }
+
+      const panAmount = 100 // pixels
+
+      switch (e.key) {
+        case 'ArrowUp':
+          e.preventDefault()
+          map.panBy([0, -panAmount])
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          map.panBy([0, panAmount])
+          break
+        case 'ArrowLeft':
+          e.preventDefault()
+          map.panBy([-panAmount, 0])
+          break
+        case 'ArrowRight':
+          e.preventDefault()
+          map.panBy([panAmount, 0])
+          break
+        case '+':
+        case '=':
+          e.preventDefault()
+          map.zoomIn()
+          break
+        case '-':
+        case '_':
+          e.preventDefault()
+          map.zoomOut()
+          break
+        case 'Tab':
+          if (segments.length > 0) {
+            e.preventDefault()
+            const nextIndex = e.shiftKey
+              ? (focusedSegmentIndex - 1 + segments.length) % segments.length
+              : (focusedSegmentIndex + 1) % segments.length
+            onFocusChange(nextIndex)
+
+            // Pan to the focused segment
+            const segment = segments[nextIndex]
+            if (segment && segment.coordinates.length > 0) {
+              const midIndex = Math.floor(segment.coordinates.length / 2)
+              const center = segment.coordinates[midIndex]
+              map.panTo(center)
+            }
+          }
+          break
+        case 'Enter':
+        case ' ':
+          if (focusedSegmentIndex >= 0 && focusedSegmentIndex < segments.length) {
+            e.preventDefault()
+            onSegmentSelect(segments[focusedSegmentIndex])
+          }
+          break
+        case 'Escape':
+          e.preventDefault()
+          onFocusChange(-1)
+          break
+      }
+    }
+
+    container.addEventListener('keydown', handleKeyDown)
+    return () => container.removeEventListener('keydown', handleKeyDown)
+  }, [map, segments, focusedSegmentIndex, onFocusChange, onSegmentSelect])
+
   return null
 }
 
@@ -139,10 +229,18 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
   const [isClient, setIsClient] = useState(false)
   const [showLegend, setShowLegend] = useState(true)
   const [visibleSegments, setVisibleSegments] = useState<SidewalkSegment[]>(segments)
+  const [focusedSegmentIndex, setFocusedSegmentIndex] = useState(-1)
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
+  const mapContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Handle keyboard segment selection
+  const handleKeyboardSelect = useCallback((segment: SidewalkSegment) => {
+    onSegmentClick(segment)
+  }, [onSegmentClick])
 
   const handleMapClick = (latlng: [number, number]) => {
     console.log('Map clicked at:', latlng)
@@ -189,11 +287,24 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
   }
 
   return (
-    <div className="relative w-full h-screen">
+    <div
+      ref={mapContainerRef}
+      className="relative w-full h-screen"
+      role="application"
+      aria-label="Interactive sidewalk map. Use arrow keys to pan, plus/minus to zoom, Tab to cycle through segments, Enter to select."
+    >
       <MapContainer
         center={ALAMEDA_CENTER}
         zoom={14}
         className="leaflet-container"
+        ref={(mapRef) => {
+          // Make map focusable for keyboard navigation
+          if (mapRef) {
+            const container = mapRef.getContainer()
+            container.setAttribute('tabindex', '0')
+            container.setAttribute('aria-label', 'Sidewalk map')
+          }
+        }}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -205,22 +316,32 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
           segments={segments}
         />
         <MapController zoomToSegment={zoomToSegment} segments={segments} />
-        
+        <KeyboardNavigation
+          segments={displaySegments}
+          focusedSegmentIndex={focusedSegmentIndex}
+          onFocusChange={setFocusedSegmentIndex}
+          onSegmentSelect={handleKeyboardSelect}
+        />
+
         {/* Mapped segments with actual data */}
-        {displaySegments.map((segment) => {
+        {displaySegments.map((segment, index) => {
           const isHighlighted = highlightedSegmentId === segment.id
           const isPending = segment.status === 'pending'
-          
+          const isKeyboardFocused = index === focusedSegmentIndex
+
           return (
             <Polyline
               key={segment.id}
               positions={segment.coordinates}
-              color={getSegmentColor(segment, filters, highlightedSegmentId)}
-              weight={isHighlighted ? 12 : isPending ? 8 : 6}
-              opacity={isHighlighted ? 1.0 : isPending ? 0.8 : 0.9}
-              dashArray={isHighlighted ? '5, 5' : isPending ? '10, 5' : undefined}
+              color={isKeyboardFocused ? '#0066FF' : getSegmentColor(segment, filters, highlightedSegmentId)}
+              weight={isKeyboardFocused ? 10 : isHighlighted ? 12 : isPending ? 8 : 6}
+              opacity={isKeyboardFocused ? 1.0 : isHighlighted ? 1.0 : isPending ? 0.8 : 0.9}
+              dashArray={isKeyboardFocused ? '8, 4' : isHighlighted ? '5, 5' : isPending ? '10, 5' : undefined}
               eventHandlers={{
-                click: () => onSegmentClick(segment)
+                click: () => {
+                  setFocusedSegmentIndex(index)
+                  onSegmentClick(segment)
+                }
               }}
             >
               <Popup>
@@ -321,6 +442,75 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
         >
           <Info className="h-5 w-5 text-gray-600" />
         </button>
+      )}
+
+      {/* Keyboard help button */}
+      <button
+        onClick={() => setShowKeyboardHelp(!showKeyboardHelp)}
+        className="absolute bottom-4 right-4 bg-white rounded-lg shadow-lg p-2 z-[1000] hover:bg-gray-50"
+        title="Keyboard shortcuts"
+        aria-label="Show keyboard shortcuts"
+      >
+        <Keyboard className="h-5 w-5 text-gray-600" />
+      </button>
+
+      {/* Keyboard help overlay */}
+      {showKeyboardHelp && (
+        <div className="absolute bottom-16 right-4 bg-white rounded-lg shadow-lg p-4 z-[1000] max-w-xs">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-gray-800 text-sm">Keyboard Shortcuts</h3>
+            <button
+              onClick={() => setShowKeyboardHelp(false)}
+              className="text-gray-500 hover:text-gray-700"
+              aria-label="Close keyboard help"
+            >
+              ×
+            </button>
+          </div>
+          <div className="space-y-2 text-xs text-gray-700">
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">↑ ↓ ← →</span>
+              <span>Pan map</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">+ / -</span>
+              <span>Zoom in/out</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">Tab</span>
+              <span>Next segment</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">Shift+Tab</span>
+              <span>Previous segment</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">Enter</span>
+              <span>Select segment</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-mono bg-gray-100 px-1 rounded">Esc</span>
+              <span>Clear focus</span>
+            </div>
+          </div>
+          <p className="text-xs text-gray-500 mt-3 pt-2 border-t">
+            Click the map first to enable keyboard navigation
+          </p>
+        </div>
+      )}
+
+      {/* Keyboard focus indicator */}
+      {focusedSegmentIndex >= 0 && focusedSegmentIndex < displaySegments.length && (
+        <div
+          className="absolute bottom-4 left-4 bg-blue-600 text-white rounded-lg shadow-lg px-3 py-2 z-[1000] text-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="font-medium">
+            Segment {focusedSegmentIndex + 1} of {displaySegments.length}:
+          </span>{' '}
+          {displaySegments[focusedSegmentIndex].street}
+        </div>
       )}
     </div>
   )

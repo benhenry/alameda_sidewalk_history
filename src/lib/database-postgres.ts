@@ -1039,6 +1039,145 @@ export async function getSegmentCorrections(segmentId?: string): Promise<any[]> 
   })
 }
 
+// ============================================================================
+// Segment Edit History Functions
+// ============================================================================
+
+export async function createSegmentEditHistory(data: {
+  segmentId: string
+  editedBy?: string
+  editedByUsername?: string
+  editType: 'create' | 'update' | 'approve' | 'reject'
+  fieldChanges: string[]
+  previousValues?: Record<string, any>
+  newValues?: Record<string, any>
+  notes?: string
+}): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      INSERT INTO segment_edit_history (
+        segment_id, edited_by, edited_by_username, edit_type,
+        field_changes, previous_values, new_values, notes
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING *
+    `, [
+      data.segmentId,
+      data.editedBy,
+      data.editedByUsername,
+      data.editType,
+      JSON.stringify(data.fieldChanges),
+      JSON.stringify(data.previousValues || {}),
+      JSON.stringify(data.newValues || {}),
+      data.notes
+    ])
+    return result.rows[0]
+  })
+}
+
+export async function getSegmentEditHistory(segmentId: string): Promise<any[]> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      SELECT h.*, s.street, s.block
+      FROM segment_edit_history h
+      JOIN sidewalk_segments s ON h.segment_id = s.id
+      WHERE h.segment_id = $1
+      ORDER BY h.created_at DESC
+    `, [segmentId])
+    return result.rows
+  })
+}
+
+export async function getRecentEditHistory(limit: number = 50): Promise<any[]> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      SELECT h.*, s.street, s.block, s.contractor
+      FROM segment_edit_history h
+      JOIN sidewalk_segments s ON h.segment_id = s.id
+      ORDER BY h.created_at DESC
+      LIMIT $1
+    `, [limit])
+    return result.rows
+  })
+}
+
+// ============================================================================
+// Segment Comments Functions
+// ============================================================================
+
+export async function createSegmentComment(data: {
+  segmentId: string
+  userId?: string
+  username?: string
+  content: string
+  parentId?: string
+}): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      INSERT INTO segment_comments (
+        segment_id, user_id, username, content, parent_id
+      )
+      VALUES ($1, $2, $3, $4, $5)
+      RETURNING *
+    `, [
+      data.segmentId,
+      data.userId,
+      data.username,
+      data.content,
+      data.parentId
+    ])
+    return result.rows[0]
+  })
+}
+
+export async function getSegmentComments(segmentId: string): Promise<any[]> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      SELECT c.*, u.username as user_username
+      FROM segment_comments c
+      LEFT JOIN users u ON c.user_id = u.id
+      WHERE c.segment_id = $1
+      ORDER BY c.created_at ASC
+    `, [segmentId])
+    return result.rows
+  })
+}
+
+export async function updateSegmentComment(
+  commentId: string,
+  content: string
+): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(`
+      UPDATE segment_comments
+      SET content = $1, is_edited = true, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      RETURNING *
+    `, [content, commentId])
+    return result.rows[0]
+  })
+}
+
+export async function deleteSegmentComment(commentId: string): Promise<boolean> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      'DELETE FROM segment_comments WHERE id = $1',
+      [commentId]
+    )
+    return result.rowCount > 0
+  })
+}
+
+export async function getCommentById(commentId: string): Promise<any> {
+  return withDatabase(async (client) => {
+    const result = await client.query(
+      'SELECT * FROM segment_comments WHERE id = $1',
+      [commentId]
+    )
+    return result.rows[0]
+  })
+}
+
 export default {
   initDatabase,
   getUserByEmail,
@@ -1087,4 +1226,14 @@ export default {
   getSegmentsForCorrection,
   createSegmentCorrection,
   getSegmentCorrections,
+  // Edit history
+  createSegmentEditHistory,
+  getSegmentEditHistory,
+  getRecentEditHistory,
+  // Comments
+  createSegmentComment,
+  getSegmentComments,
+  updateSegmentComment,
+  deleteSegmentComment,
+  getCommentById,
 }

@@ -10,6 +10,7 @@ import AdminConflictResolution from '@/components/AdminConflictResolution'
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { authenticatedFetch } from '@/lib/api'
 import { useToast } from '@/components/Toast'
+import Breadcrumb from '@/components/Breadcrumb'
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -151,6 +152,9 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="pt-4">
+            <Breadcrumb />
+          </div>
           <div className="flex justify-between items-center py-4">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">

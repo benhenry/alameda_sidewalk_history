@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Providers } from '@/components/Providers'
+import SkipLink from '@/components/SkipLink'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -26,7 +27,10 @@ export default function RootLayout({
           crossOrigin=""
         />
         <Providers>
-          {children}
+          <SkipLink />
+          <main id="main-content" tabIndex={-1} className="outline-none">
+            {children}
+          </main>
         </Providers>
       </body>
     </html>

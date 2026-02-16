@@ -4,23 +4,38 @@ import Map from '../Map'
 import { SidewalkSegment, FilterOptions } from '@/types/sidewalk'
 
 // Mock leaflet since it requires a DOM environment
-jest.mock('react-leaflet', () => ({
-  MapContainer: ({ children }: any) => <div data-testid="map-container">{children}</div>,
-  TileLayer: () => <div data-testid="tile-layer" />,
-  Polyline: ({ children }: any) => <div data-testid="polyline">{children}</div>,
-  Popup: ({ children }: any) => <div data-testid="popup">{children}</div>,
-  useMapEvents: jest.fn(() => null),
-  useMap: jest.fn(() => ({
-    on: jest.fn(),
-    off: jest.fn(),
-    getZoom: jest.fn(() => 14),
-    getCenter: jest.fn(() => ({ lat: 37.7652, lng: -122.2416 })),
-    setView: jest.fn(),
-    fitBounds: jest.fn(),
-    removeLayer: jest.fn(),
-    addLayer: jest.fn(),
-  })),
-}))
+jest.mock('react-leaflet', () => {
+  // Mock container element for keyboard navigation (must be inside factory function)
+  const mockContainer = {
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    focus: jest.fn(),
+    setAttribute: jest.fn(),
+    getAttribute: jest.fn(() => null),
+  }
+
+  return {
+    MapContainer: ({ children }: any) => <div data-testid="map-container">{children}</div>,
+    TileLayer: () => <div data-testid="tile-layer" />,
+    Polyline: ({ children }: any) => <div data-testid="polyline">{children}</div>,
+    Popup: ({ children }: any) => <div data-testid="popup">{children}</div>,
+    useMapEvents: jest.fn(() => null),
+    useMap: jest.fn(() => ({
+      on: jest.fn(),
+      off: jest.fn(),
+      getZoom: jest.fn(() => 14),
+      getCenter: jest.fn(() => ({ lat: 37.7652, lng: -122.2416 })),
+      setView: jest.fn(),
+      fitBounds: jest.fn(),
+      removeLayer: jest.fn(),
+      addLayer: jest.fn(),
+      getContainer: jest.fn(() => mockContainer),
+      panBy: jest.fn(),
+      zoomIn: jest.fn(),
+      zoomOut: jest.fn(),
+    })),
+  }
+})
 
 // Mock leaflet library
 jest.mock('leaflet', () => ({

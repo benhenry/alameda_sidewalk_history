@@ -3,6 +3,7 @@
 import { X } from 'lucide-react'
 import { signIn } from 'next-auth/react'
 import Image from 'next/image'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 
 interface AuthModalProps {
   isOpen: boolean
@@ -10,6 +11,11 @@ interface AuthModalProps {
 }
 
 export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    enabled: isOpen,
+    onEscape: onClose,
+  })
+
   if (!isOpen) return null
 
   const handleSignIn = async (provider: 'google' | 'github') => {
@@ -21,15 +27,21 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="auth-modal-title"
+    >
+      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">
+          <h2 id="auth-modal-title" className="text-2xl font-bold text-gray-800">
             Sign In
           </h2>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
+            aria-label="Close modal"
           >
             <X className="h-6 w-6" />
           </button>

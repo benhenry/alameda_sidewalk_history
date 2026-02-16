@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { X, MapPin, Camera, Save } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from './Toast'
+import { useFocusTrap } from '@/lib/useFocusTrap'
 import SegmentForm from './SegmentForm'
 import PhotoUpload from './PhotoUpload'
 import { SidewalkSegment } from '@/types/sidewalk'
@@ -14,14 +16,19 @@ interface ContributeModalProps {
   onSegmentSaved: () => void
 }
 
-export default function ContributeModal({ 
-  isOpen, 
-  onClose, 
+export default function ContributeModal({
+  isOpen,
+  onClose,
   selectedSegment,
-  onSegmentSaved 
+  onSegmentSaved
 }: ContributeModalProps) {
   const [mode, setMode] = useState<'segment' | 'photo'>('segment')
   const { user } = useAuth()
+  const { showSuccess, showError, showWarning } = useToast()
+  const modalRef = useFocusTrap<HTMLDivElement>({
+    enabled: isOpen && !!user,
+    onEscape: onClose,
+  })
 
   if (!isOpen || !user) return null
 
@@ -43,7 +50,7 @@ export default function ContributeModal({
         const error = await response.json()
         if (response.status === 422 && error.invalidCoordinates) {
           // Handle validation error with more specific message
-          alert(`Some coordinates are not near known sidewalk locations. Please adjust your segment to follow actual sidewalk paths. Invalid coordinates: ${error.invalidCoordinates.map((c: [number, number]) => `${c[0].toFixed(6)}, ${c[1].toFixed(6)}`).join('; ')}`)
+          showWarning('Some coordinates are not near known sidewalk locations. Please adjust your segment to follow actual sidewalk paths.')
           return
         }
         throw new Error(error.error || 'Failed to save segment')
@@ -52,22 +59,30 @@ export default function ContributeModal({
       onSegmentSaved()
       onClose()
       if (selectedSegment) {
-        alert('Segment updated successfully!')
+        showSuccess('Segment updated successfully!')
       } else {
-        alert('Segment submitted for review! It will appear on the map once approved by an admin.')
+        showSuccess('Segment submitted for review! It will appear on the map once approved by an admin.')
       }
     } catch (error) {
       console.error('Error saving segment:', error)
-      alert(error instanceof Error ? error.message : 'Failed to save segment')
+      showError(error instanceof Error ? error.message : 'Failed to save segment')
     }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1100]"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="contribute-modal-title"
+    >
+      <div
+        ref={modalRef}
+        className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden"
+      >
         <div className="flex justify-between items-center p-6 border-b">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 id="contribute-modal-title" className="text-2xl font-bold text-gray-800">
               Contribute to Alameda Sidewalk Map
             </h2>
             <p className="text-gray-600 text-sm mt-1">
@@ -77,6 +92,7 @@ export default function ContributeModal({
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
+            aria-label="Close modal"
           >
             <X className="h-6 w-6" />
           </button>

@@ -30,6 +30,15 @@ const mockBounds = {
   getWest: jest.fn(() => -122.25),
 }
 
+// Create a mock container element
+const mockContainer = {
+  addEventListener: jest.fn(),
+  removeEventListener: jest.fn(),
+  focus: jest.fn(),
+  setAttribute: jest.fn(),
+  getAttribute: jest.fn(() => null),
+}
+
 const mockMapInstance = {
   on: jest.fn(),
   off: jest.fn(),
@@ -40,6 +49,10 @@ const mockMapInstance = {
   fitBounds: jest.fn(),
   removeLayer: jest.fn(),
   addLayer: jest.fn(),
+  getContainer: jest.fn(() => mockContainer),
+  panBy: jest.fn(),
+  zoomIn: jest.fn(),
+  zoomOut: jest.fn(),
 }
 
 export const useMap = () => mockMapInstance
