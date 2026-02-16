@@ -219,6 +219,79 @@ function formatSegmentRow(row: any): SidewalkSegment {
   }
 }
 
+// ============================================================================
+// Segment Edit History Functions (SQLite stubs)
+// ============================================================================
+
+export async function createSegmentEditHistory(data: {
+  segmentId: string
+  editedBy?: string
+  editedByUsername?: string
+  editType: 'create' | 'update' | 'approve' | 'reject'
+  fieldChanges: string[]
+  previousValues?: Record<string, any>
+  newValues?: Record<string, any>
+  notes?: string
+}): Promise<any> {
+  console.warn('createSegmentEditHistory not implemented in SQLite')
+  return { id: uuidv4(), ...data, created_at: new Date().toISOString() }
+}
+
+export async function getSegmentEditHistory(segmentId: string): Promise<any[]> {
+  console.warn('getSegmentEditHistory not implemented in SQLite')
+  return []
+}
+
+export async function getRecentEditHistory(limit: number = 50): Promise<any[]> {
+  console.warn('getRecentEditHistory not implemented in SQLite')
+  return []
+}
+
+// ============================================================================
+// Segment Comments Functions (SQLite stubs)
+// ============================================================================
+
+export async function createSegmentComment(data: {
+  segmentId: string
+  userId?: string
+  username?: string
+  content: string
+  parentId?: string
+}): Promise<any> {
+  console.warn('createSegmentComment not implemented in SQLite')
+  return {
+    id: uuidv4(),
+    segment_id: data.segmentId,
+    user_id: data.userId,
+    username: data.username,
+    content: data.content,
+    parent_id: data.parentId || null,
+    is_edited: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
+}
+
+export async function getSegmentComments(segmentId: string): Promise<any[]> {
+  console.warn('getSegmentComments not implemented in SQLite')
+  return []
+}
+
+export async function updateSegmentComment(commentId: string, content: string): Promise<any> {
+  console.warn('updateSegmentComment not implemented in SQLite')
+  return null
+}
+
+export async function deleteSegmentComment(commentId: string): Promise<boolean> {
+  console.warn('deleteSegmentComment not implemented in SQLite')
+  return false
+}
+
+export async function getCommentById(commentId: string): Promise<any> {
+  console.warn('getCommentById not implemented in SQLite')
+  return null
+}
+
 // Re-export utilities
 export const parseCoordinates = sqliteDb.parseCoordinates
 export const stringifyCoordinates = sqliteDb.stringifyCoordinates
@@ -250,4 +323,14 @@ export default {
   updateUserPassword,
   healthCheck,
   closeDatabase,
+  // Edit history functions
+  createSegmentEditHistory,
+  getSegmentEditHistory,
+  getRecentEditHistory,
+  // Comments functions
+  createSegmentComment,
+  getSegmentComments,
+  updateSegmentComment,
+  deleteSegmentComment,
+  getCommentById,
 }

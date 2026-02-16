@@ -75,7 +75,7 @@ export async function POST(
     const comment = await createSegmentComment({
       segmentId,
       userId: user.id,
-      username: user.username,
+      username: user.username || undefined,
       content: sanitizedContent,
       parentId: parentId || null
     })

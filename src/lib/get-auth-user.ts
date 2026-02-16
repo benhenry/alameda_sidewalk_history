@@ -6,10 +6,11 @@
 import { auth } from '@/auth'
 import { getDevUser } from './dev-auth-api'
 
-interface AuthUser {
+export interface AuthUser {
   id: string
   email: string
   name?: string | null
+  username?: string | null
   role: 'admin' | 'user'
 }
 
@@ -33,10 +34,14 @@ export async function getAuthUser(request: Request): Promise<AuthUser | null> {
     return null
   }
 
+  // Use name as username since Auth.js OAuth doesn't have separate username
+  const username = session.user.name || session.user.email?.split('@')[0] || undefined
+
   return {
     id: session.user.id,
     email: session.user.email || '',
     name: session.user.name,
+    username,
     role: session.user.role || 'user',
   }
 }
