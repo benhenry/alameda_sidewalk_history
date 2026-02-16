@@ -214,6 +214,14 @@ export function validateSegmentData(data: any): ValidationResult {
   }
 }
 
+/**
+ * Sanitize HTML content to prevent XSS attacks.
+ * Uses DOMPurify to strip potentially dangerous HTML.
+ */
+export function sanitizeHtml(input: string): string {
+  return DOMPurify.sanitize(input.trim())
+}
+
 // File upload validation
 export function validateImageFile(file: File): ValidationResult {
   const errors: string[] = []

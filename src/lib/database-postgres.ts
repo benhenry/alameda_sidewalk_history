@@ -1164,7 +1164,7 @@ export async function deleteSegmentComment(commentId: string): Promise<boolean> 
       'DELETE FROM segment_comments WHERE id = $1',
       [commentId]
     )
-    return result.rowCount > 0
+    return (result.rowCount ?? 0) > 0
   })
 }
 
