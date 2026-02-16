@@ -1,4 +1,25 @@
-import DOMPurify from 'isomorphic-dompurify'
+// Server-safe HTML entity escaping (works without jsdom)
+const htmlEntities: Record<string, string> = {
+  '&': '&amp;',
+  '<': '&lt;',
+  '>': '&gt;',
+  '"': '&quot;',
+  "'": '&#x27;',
+  '/': '&#x2F;',
+}
+
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>"'/]/g, (char) => htmlEntities[char] || char)
+}
+
+// DOMPurify is only loaded on the client side to avoid jsdom issues in Docker
+let DOMPurify: any = null
+if (typeof window !== 'undefined') {
+  // Client-side: use full DOMPurify
+  import('isomorphic-dompurify').then((module) => {
+    DOMPurify = module.default
+  })
+}
 
 // Input validation schemas
 export const validationRules = {
@@ -84,8 +105,9 @@ export function validateField(field: string, value: any): ValidationResult {
 
   // String validations
   if (typeof value === 'string') {
-    // Sanitize HTML
-    const sanitizedValue = DOMPurify.sanitize(value.trim())
+    // Sanitize HTML - use DOMPurify on client, simple escape on server
+    const trimmed = value.trim()
+    const sanitizedValue = DOMPurify ? DOMPurify.sanitize(trimmed) : escapeHtml(trimmed)
     
     // Length checks
     if ('maxLength' in rules && sanitizedValue.length > rules.maxLength) {
@@ -218,8 +240,13 @@ export function validateSegmentData(data: any): ValidationResult {
  * Sanitize HTML content to prevent XSS attacks.
  * Uses DOMPurify to strip potentially dangerous HTML.
  */
+/**
+ * Sanitize HTML content to prevent XSS attacks.
+ * Uses DOMPurify on client, simple HTML escaping on server.
+ */
 export function sanitizeHtml(input: string): string {
-  return DOMPurify.sanitize(input.trim())
+  const trimmed = input.trim()
+  return DOMPurify ? DOMPurify.sanitize(trimmed) : escapeHtml(trimmed)
 }
 
 // File upload validation
