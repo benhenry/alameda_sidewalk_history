@@ -302,6 +302,50 @@ npm audit fix       # Fix security issues
    # Optional: DATABASE_URL for PostgreSQL override
    ```
 
+### Git Workflow (PR-Based)
+
+**IMPORTANT**: All changes must go through Pull Requests. Do NOT push directly to main.
+
+1. **Create a feature branch:**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b feature/your-feature-name
+   ```
+
+2. **Make changes and commit:**
+   ```bash
+   git add <specific-files>
+   git commit -m "Description of changes
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   ```
+
+3. **Push to GitHub:**
+   ```bash
+   git push -u origin feature/your-feature-name
+   ```
+
+4. **Create a Pull Request:**
+   ```bash
+   gh pr create --title "Feature title" --body "Description of changes"
+   ```
+   Or create via GitHub web interface.
+
+5. **Wait for CI checks to pass** - GitHub Actions runs:
+   - TypeScript type checking
+   - ESLint linting
+   - Jest tests with coverage
+   - Production build verification
+
+6. **Merge the PR** - After review and CI passes, merge triggers deployment.
+
+**Branch Naming Conventions:**
+- `feature/` - New features (e.g., `feature/add-comments`)
+- `fix/` - Bug fixes (e.g., `fix/auth-redirect`)
+- `docs/` - Documentation updates (e.g., `docs/update-readme`)
+- `refactor/` - Code refactoring (e.g., `refactor/database-layer`)
+
 ---
 
 ## Data Models & Schema
@@ -522,18 +566,27 @@ Before ending any Claude session:
 - [ ] **🧪 New/modified code has corresponding tests**
 - [ ] TypeScript validation clean (`npm run typecheck`)
 - [ ] Build successful (`npm run build`)
-- [ ] Git status clean (commit changes if needed)
+- [ ] **📝 Changes committed to feature branch (NOT main)**
+- [ ] **🔀 PR created or updated if work is complete**
 - [ ] Update CHANGELOG.md with session notes
 - [ ] Verify TODO.md reflects current state
 
 ### **Test Verification Steps**
-1. Run `npm run test:ci` and verify all 167 tests pass
+1. Run `npm run test:ci` and verify all 229+ tests pass
 2. Run `npm run test:coverage` to check coverage meets threshold
 3. Check that new functions/components have tests
 4. Verify modified code paths are tested
 
+### **Git/PR Workflow Steps**
+1. Ensure you're on a feature branch (NOT main)
+2. Stage and commit changes with descriptive message
+3. Push to origin: `git push -u origin <branch-name>`
+4. Create PR: `gh pr create` or via GitHub web
+5. Verify CI checks pass on the PR
+6. Request review if needed, then merge
+
 ---
 
-*This CLAUDE.md was last updated: 2026-01-16*
+*This CLAUDE.md was last updated: 2026-02-16*
 *Project Version: 0.1.0*
 *Next.js Version: 14.2.31*
