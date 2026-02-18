@@ -62,16 +62,20 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
         method: 'POST',
         body: JSON.stringify({ minOverlapMeters: 1 })
       })
-      if (!response.ok) {
-        handleApiError(response)
-        throw new Error('Failed to run detection')
-      }
+
       const data = await response.json()
+
+      if (!response.ok) {
+        // Show specific error message from API
+        showError(data.error || 'Failed to run detection')
+        return
+      }
+
       showInfo(`Detection complete: ${data.detected} overlaps found`)
       await loadConflicts()
     } catch (error) {
       console.error('Error running detection:', error)
-      showError('Failed to run overlap detection')
+      showError('Failed to run overlap detection. Please try again.')
     } finally {
       setDetecting(false)
     }

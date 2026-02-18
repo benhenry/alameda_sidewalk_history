@@ -37,7 +37,7 @@ export default function AdminSegmentEditor({
   const [coordinates, setCoordinates] = useState<[number, number][]>(segment.coordinates)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [showMap, setShowMap] = useState(false)
+  const [showMap, setShowMap] = useState(true)  // Show map by default for easier editing
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target

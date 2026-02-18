@@ -5,6 +5,10 @@ const L = {
       mergeOptions: jest.fn(),
     },
   },
+  divIcon: jest.fn(() => ({
+    options: {},
+    createIcon: jest.fn(),
+  })),
   polyline: jest.fn(() => ({
     addTo: jest.fn(),
     remove: jest.fn(),
@@ -17,3 +21,4 @@ const L = {
 }
 
 module.exports = L
+module.exports.default = L

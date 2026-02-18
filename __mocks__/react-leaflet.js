@@ -15,6 +15,15 @@ export const Popup = ({ children, ...props }) =>
 export const CircleMarker = (props) =>
   React.createElement('div', { 'data-testid': 'circle-marker', ...props })
 
+// Mock Marker with ref support for draggable markers
+export const Marker = React.forwardRef((props, ref) => {
+  // Simulate ref methods for draggable markers
+  React.useImperativeHandle(ref, () => ({
+    getLatLng: () => ({ lat: props.position[0], lng: props.position[1] }),
+  }))
+  return React.createElement('div', { 'data-testid': 'marker', ...props })
+})
+
 export const useMapEvents = (eventHandlers) => {
   // Store event handlers for tests to access if needed, but don't auto-fire
   // Tests can manually trigger events through mock implementations
