@@ -236,7 +236,9 @@ export default function AdminConflictResolution({ onPreviewSegments }: AdminConf
                     <div className="flex items-center gap-2 mb-2">
                       {getStatusBadge(conflict.status)}
                       <span className="text-sm text-gray-500">
-                        {conflict.overlap_length_meters.toFixed(1)}m overlap
+                        {conflict.overlap_length_meters != null
+                          ? `${Number(conflict.overlap_length_meters).toFixed(1)}m overlap`
+                          : 'Overlap detected'}
                       </span>
                     </div>
 
