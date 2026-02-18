@@ -11,6 +11,7 @@ import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { authenticatedFetch } from '@/lib/api'
 import { useToast } from '@/components/Toast'
 import Breadcrumb from '@/components/Breadcrumb'
+import { useSidewalkData } from '@/lib/sidewalk-context'
 
 const Map = dynamic(() => import('@/components/Map'), { 
   ssr: false,
@@ -32,6 +33,7 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('map')
   const previewTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const { showSuccess, showError } = useToast()
+  const { sidewalkData } = useSidewalkData()
 
   // Cleanup preview timeout on unmount
   useEffect(() => {
@@ -369,7 +371,7 @@ export default function AdminPage() {
         {/* Segment Approval Tab */}
         {activeTab === 'approval' && (
           <div id="approval-panel" role="tabpanel" aria-labelledby="approval-tab">
-            <AdminSegmentApproval onPreviewSegment={handlePreviewSegment} />
+            <AdminSegmentApproval onPreviewSegment={handlePreviewSegment} sidewalkData={sidewalkData} />
           </div>
         )}
 
