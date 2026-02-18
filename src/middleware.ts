@@ -15,11 +15,13 @@ function addSecurityHeaders(response: NextResponse) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Bot detection
-  const botCheck = detectBotBehavior(request)
-  if (botCheck.isBot) {
-    console.log(`Bot detected: ${botCheck.reason} - IP: ${request.ip}`)
-    return new NextResponse('Access denied', { status: 403 })
+  // Bot detection (skip in development mode for testing)
+  if (process.env.NODE_ENV !== 'development') {
+    const botCheck = detectBotBehavior(request)
+    if (botCheck.isBot) {
+      console.log(`Bot detected: ${botCheck.reason} - IP: ${request.ip}`)
+      return new NextResponse('Access denied', { status: 403 })
+    }
   }
 
   // Apply rate limiting based on endpoint
@@ -39,21 +41,27 @@ export async function middleware(request: NextRequest) {
     return rateLimitResponse
   }
 
-  // Protect admin pages - check for Auth.js session cookie
+  // Protect admin pages - check for Auth.js session cookie or dev auth
   // Note: Actual session validation happens in the page/API route via auth()
   if (pathname.startsWith('/admin')) {
-    // Check for Auth.js session cookie (authjs.session-token or __Secure-authjs.session-token)
-    const sessionToken = request.cookies.get('authjs.session-token')?.value ||
-                         request.cookies.get('__Secure-authjs.session-token')?.value
+    // In development mode, allow access if using dev auth (localStorage-based)
+    // The admin page itself will verify admin role from dev auth
+    const isDev = process.env.NODE_ENV === 'development'
 
-    if (!sessionToken) {
-      // Redirect to main page with auth modal
-      const url = request.nextUrl.clone()
-      url.pathname = '/'
-      url.searchParams.set('auth', 'required')
-      return addSecurityHeaders(NextResponse.redirect(url))
+    if (!isDev) {
+      // Production: require Auth.js session cookie
+      const sessionToken = request.cookies.get('authjs.session-token')?.value ||
+                           request.cookies.get('__Secure-authjs.session-token')?.value
+
+      if (!sessionToken) {
+        // Redirect to main page with auth modal
+        const url = request.nextUrl.clone()
+        url.pathname = '/'
+        url.searchParams.set('auth', 'required')
+        return addSecurityHeaders(NextResponse.redirect(url))
+      }
     }
-    // Note: Role check (admin) is done in the admin page itself via auth()
+    // Note: Role check (admin) is done in the admin page itself via auth() or dev auth
   }
 
   // For API routes, just pass through with security headers
