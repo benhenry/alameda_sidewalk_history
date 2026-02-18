@@ -9,15 +9,15 @@
 4. **Check git status** - See what files have been modified since last session
 
 ### Planning Protocol
-- After any planning session, append notes and decisions to `CHANGELOG.md`
 - Always validate work done during the session before closing
 - Use the TodoWrite tool proactively to track progress on complex tasks
+- The `docs-reviewer` agent handles CHANGELOG and documentation updates after code changes
 
 ### **Test Coverage Requirements**
 - **Current threshold: 20% minimum** (realistic for current codebase state)
 - **ALWAYS verify tests when adding, changing, or modifying code under test**
 - **Run `npm run test:ci` before committing changes**
-- **All 167 tests must pass before deployment**
+- **All 229+ tests must pass before deployment**
 - **Goal: Gradually increase coverage as new features are added**
 
 ---
@@ -225,7 +225,7 @@ export const dynamic = 'force-dynamic'
 
 ### Current Test Coverage
 - **Minimum Threshold**: 20% (configured in jest.config.js)
-- **Current State**: 167 tests across 19 test suites
+- **Current State**: 229+ tests across 26 test suites
 - **Goal**: Gradually increase coverage as new features are added
 
 ### Test Commands
@@ -517,23 +517,17 @@ npm run build 2>&1 | tee build.log
 Before ending any Claude session:
 
 - [ ] All TodoWrite tasks marked complete
-- [ ] **🧪 All tests passing (`npm run test:ci`)**
+- [ ] **🧪 All tests passing (`npm run test:ci`)** - currently 229+ tests
 - [ ] **🧪 Coverage meets 20% minimum threshold**
-- [ ] **🧪 New/modified code has corresponding tests**
 - [ ] TypeScript validation clean (`npm run typecheck`)
 - [ ] Build successful (`npm run build`)
 - [ ] Git status clean (commit changes if needed)
-- [ ] Update CHANGELOG.md with session notes
 - [ ] Verify TODO.md reflects current state
 
-### **Test Verification Steps**
-1. Run `npm run test:ci` and verify all 167 tests pass
-2. Run `npm run test:coverage` to check coverage meets threshold
-3. Check that new functions/components have tests
-4. Verify modified code paths are tested
+**Note:** The `docs-reviewer` and `security-reviewer` agents handle documentation updates and security reviews proactively after code changes. They will be invoked automatically when relevant.
 
 ---
 
-*This CLAUDE.md was last updated: 2026-01-16*
+*This CLAUDE.md was last updated: 2026-02-17*
 *Project Version: 0.1.0*
 *Next.js Version: 14.2.31*

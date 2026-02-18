@@ -14,6 +14,10 @@ global.L = {
       mergeOptions: jest.fn(),
     },
   },
+  divIcon: jest.fn(() => ({
+    options: {},
+    createIcon: jest.fn(),
+  })),
 }
 
 // Mock next/navigation

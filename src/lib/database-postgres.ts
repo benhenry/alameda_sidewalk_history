@@ -862,6 +862,19 @@ export async function detectSegmentOverlaps(minOverlapMeters: number = 1): Promi
 
 export async function getSegmentConflicts(status?: string): Promise<any[]> {
   return withDatabase(async (client) => {
+    // Check if segment_conflicts table exists
+    const tableCheck = await client.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'segment_conflicts'
+      )`
+    )
+
+    if (!tableCheck.rows[0].exists) {
+      console.warn('getSegmentConflicts: segment_conflicts table does not exist. Run database migration.')
+      return []
+    }
+
     let query = `
       SELECT
         c.*,
@@ -897,6 +910,19 @@ export async function createSegmentConflict(data: {
   overlapLengthMeters: number
 }): Promise<any> {
   return withDatabase(async (client) => {
+    // Check if segment_conflicts table exists
+    const tableCheck = await client.query(
+      `SELECT EXISTS (
+        SELECT FROM information_schema.tables
+        WHERE table_name = 'segment_conflicts'
+      )`
+    )
+
+    if (!tableCheck.rows[0].exists) {
+      console.warn('createSegmentConflict: segment_conflicts table does not exist. Run database migration.')
+      throw new Error('Database migration required: segment_conflicts table does not exist')
+    }
+
     const result = await client.query(
       `INSERT INTO segment_conflicts (segment1_id, segment2_id, overlap_length_meters)
        VALUES ($1, $2, $3)

@@ -72,23 +72,45 @@ export async function POST(request: NextRequest) {
 
     const overlaps = await detectSegmentOverlaps(minOverlapMeters)
 
-    // Create or update conflict records
-    for (const overlap of overlaps) {
-      await createSegmentConflict({
-        segment1Id: overlap.segment1_id,
-        segment2Id: overlap.segment2_id,
-        overlapLengthMeters: overlap.overlap_meters
+    if (overlaps.length === 0) {
+      return NextResponse.json({
+        detected: 0,
+        message: 'No overlapping segments found (or geometry column not available)'
       })
+    }
+
+    // Create or update conflict records
+    let created = 0
+    for (const overlap of overlaps) {
+      try {
+        await createSegmentConflict({
+          segment1Id: overlap.segment1_id,
+          segment2Id: overlap.segment2_id,
+          overlapLengthMeters: overlap.overlap_meters
+        })
+        created++
+      } catch (err) {
+        // If table doesn't exist, return helpful error
+        if (err instanceof Error && err.message.includes('migration required')) {
+          return NextResponse.json(
+            { error: 'Database migration required. The segment_conflicts table needs to be created. Please run the database setup script.' },
+            { status: 503 }
+          )
+        }
+        throw err
+      }
     }
 
     return NextResponse.json({
       detected: overlaps.length,
+      created,
       message: `Detected ${overlaps.length} segment overlaps`
     })
   } catch (error) {
     console.error('Error detecting conflicts:', error)
+    const message = error instanceof Error ? error.message : 'Failed to detect conflicts'
     return NextResponse.json(
-      { error: 'Failed to detect conflicts' },
+      { error: message },
       { status: 500 }
     )
   }

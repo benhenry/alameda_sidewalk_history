@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker } from 'react-leaflet'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { MapContainer, TileLayer, Polyline, useMap, useMapEvents, CircleMarker, Marker } from 'react-leaflet'
 import L from 'leaflet'
 import { Trash2, Undo, Check, AlertTriangle, Search, Loader2 } from 'lucide-react'
 import { useToast } from './Toast'
@@ -25,6 +25,68 @@ interface InteractiveSegmentDrawerProps {
 
 // Alameda, CA coordinates
 const ALAMEDA_CENTER: [number, number] = [37.7652, -122.2416]
+
+// Custom icon for draggable markers
+const createDraggableIcon = (index: number, isFirst: boolean, isLast: boolean) => {
+  const color = isFirst ? '#22C55E' : isLast ? '#EF4444' : '#3B82F6'
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      width: 20px;
+      height: 20px;
+      background: ${color};
+      border: 2px solid white;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      color: white;
+      cursor: grab;
+    ">${index + 1}</div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10],
+  })
+}
+
+// Draggable marker component for editing points
+function DraggablePointMarker({
+  position,
+  index,
+  totalPoints,
+  onDragEnd,
+}: {
+  position: [number, number]
+  index: number
+  totalPoints: number
+  onDragEnd: (index: number, newPosition: [number, number]) => void
+}) {
+  const markerRef = useRef<L.Marker>(null)
+  const isFirst = index === 0
+  const isLast = index === totalPoints - 1
+
+  const eventHandlers = {
+    dragend() {
+      const marker = markerRef.current
+      if (marker) {
+        const latlng = marker.getLatLng()
+        onDragEnd(index, [latlng.lat, latlng.lng])
+      }
+    },
+  }
+
+  return (
+    <Marker
+      ref={markerRef}
+      position={position}
+      draggable={true}
+      eventHandlers={eventHandlers}
+      icon={createDraggableIcon(index, isFirst, isLast)}
+    />
+  )
+}
 
 function DrawingEvents({
   onCoordinatesChange,
@@ -405,6 +467,13 @@ export default function InteractiveSegmentDrawer({
     setSearchLng(lng)
   }
 
+  const handlePointDragEnd = (index: number, newPosition: [number, number]) => {
+    const newCoords = [...coordinates]
+    newCoords[index] = newPosition
+    setCoordinates(newCoords)
+    onCoordinatesChange(newCoords)
+  }
+
   if (!isClient) {
     return <div className="w-full h-64 bg-gray-200 flex items-center justify-center">Loading map...</div>
   }
@@ -422,10 +491,10 @@ export default function InteractiveSegmentDrawer({
             <p className="font-medium text-blue-800 mb-1">How to draw a sidewalk segment:</p>
             <ul className="text-blue-700 space-y-1">
               <li>• <strong>Click on or near the dashed lines to add points</strong></li>
+              <li>• <strong>Drag numbered markers to adjust point positions</strong></li>
               <li>• <span className="text-green-700 font-medium">Green dashed lines</span> = existing approved segments (snap within 10m)</li>
               <li>• <span className="text-blue-700 font-medium">Blue dashed lines</span> = OSM reference sidewalks (snap within 50m)</li>
               <li>• Connect 2+ points along the same sidewalk to create a segment</li>
-              <li>• Points will automatically snap to the exact sidewalk location</li>
             </ul>
           </div>
         </div>
@@ -473,17 +542,14 @@ export default function InteractiveSegmentDrawer({
             />
           )}
           
-          {/* Show individual points as markers */}
+          {/* Show individual points as draggable markers */}
           {coordinates.map((coord, index) => (
-            <CircleMarker
+            <DraggablePointMarker
               key={index}
-              center={coord}
-              radius={6}
-              fillColor="#EF4444"
-              color="#DC2626"
-              weight={2}
-              opacity={0.9}
-              fillOpacity={0.7}
+              position={coord}
+              index={index}
+              totalPoints={coordinates.length}
+              onDragEnd={handlePointDragEnd}
             />
           ))}
         </MapContainer>

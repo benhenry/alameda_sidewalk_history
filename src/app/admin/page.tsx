@@ -131,6 +131,9 @@ export default function AdminPage() {
       clearTimeout(previewTimeoutRef.current)
     }
 
+    // Switch to map tab first so the map is visible
+    setActiveTab('map')
+
     setHighlightedSegmentId(segment.id)
     setZoomToSegmentId(segment.id)
     setSelectedSegment(segment)
