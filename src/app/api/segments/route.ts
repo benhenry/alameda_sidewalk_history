@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllSegments, createSegment, updateContractorStats } from '@/lib/database'
 import { getAuthUser } from '@/lib/get-auth-user'
+import { logPerf } from '@/lib/perf-logger'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const apiStart = performance.now()
   try {
     const { searchParams } = new URL(request.url)
     const contractor = searchParams.get('contractor')
@@ -25,6 +27,8 @@ export async function GET(request: NextRequest) {
     if (street) {
       segments = segments.filter(s => s.street === street)
     }
+
+    logPerf('api.GET./api/segments', performance.now() - apiStart, { count: segments.length })
 
     // Segments are already formatted from the database abstraction
     return NextResponse.json(segments)

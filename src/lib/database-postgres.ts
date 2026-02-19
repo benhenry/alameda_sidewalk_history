@@ -4,6 +4,7 @@
 import { Pool, PoolClient } from 'pg'
 import { SidewalkSegment, Contractor } from '@/types/sidewalk'
 import { User } from '@/types/auth'
+import { logPerf } from './perf-logger'
 
 // Create a connection pool with fallback to individual env vars
 const connectionConfig = process.env.DATABASE_URL 
@@ -33,11 +34,26 @@ console.log('🔧 PostgreSQL connection config:', {
 
 const pool = new Pool(connectionConfig)
 
-// Connection wrapper for better error handling
-async function withDatabase<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
+// Connection wrapper for better error handling with performance logging
+async function withDatabase<T>(callback: (client: PoolClient) => Promise<T>, operationName?: string): Promise<T> {
+  const start = performance.now()
   const client = await pool.connect()
+  const connectTime = performance.now() - start
+
+  if (connectTime > 50) {
+    logPerf('db.connect', connectTime)
+  }
+
   try {
-    return await callback(client)
+    const queryStart = performance.now()
+    const result = await callback(client)
+    const queryTime = performance.now() - queryStart
+
+    if (operationName) {
+      logPerf(`db.${operationName}`, queryTime)
+    }
+
+    return result
   } finally {
     client.release()
   }
@@ -116,9 +132,9 @@ export const updateUserLastLogin = async (userId: string): Promise<void> => {
 export const getAllSegments = async (): Promise<SidewalkSegment[]> => {
   return withDatabase(async (client) => {
     const result = await client.query(
-      `SELECT s.*, u.username as created_by_username 
-       FROM sidewalk_segments s 
-       LEFT JOIN users u ON s.created_by = u.id 
+      `SELECT s.*, u.username as created_by_username
+       FROM sidewalk_segments s
+       LEFT JOIN users u ON s.created_by = u.id
        WHERE s.status = 'approved'
        ORDER BY s.created_at DESC`
     )
@@ -128,7 +144,7 @@ export const getAllSegments = async (): Promise<SidewalkSegment[]> => {
       special_marks: row.special_marks || [],
       specialMarks: row.special_marks || [], // Legacy compatibility
     }))
-  })
+  }, 'getAllSegments')
 }
 
 export const getSegmentById = async (id: string): Promise<SidewalkSegment | null> => {
@@ -568,7 +584,7 @@ export async function getAllReferenceSidewalks(bounds?: {
 
     const result = await client.query(query, params)
     return result.rows
-  })
+  }, 'getAllReferenceSidewalks')
 }
 
 export async function updateReferenceSidewalk(
