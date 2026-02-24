@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth-context'
 import AuthModal from './AuthModal'
 import UserMenu from './UserMenu'
 import { useToast } from './Toast'
+import { SidebarAd } from './GoogleAd'
 
 interface SidebarProps {
   contractors: Contractor[]
@@ -334,6 +335,9 @@ export default function Sidebar({
           <p>Year range: {years.length > 0 ? `${Math.min(...years)} - ${Math.max(...years)}` : 'N/A'}</p>
         </div>
       </div>
+
+      {/* Advertisement */}
+      <SidebarAd />
       </div>
 
       <AuthModal

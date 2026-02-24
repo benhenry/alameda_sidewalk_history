@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Script from 'next/script'
 import { Providers } from '@/components/Providers'
 import SkipLink from '@/components/SkipLink'
 import './globals.css'
@@ -13,11 +14,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const adsenseId = process.env.NEXT_PUBLIC_ADSENSE_ID
+
   return (
     <html lang="en-US">
       <head>
         <meta name="google" content="notranslate" />
         <meta httpEquiv="Content-Language" content="en-US" />
+        {/* Google AdSense - only load if configured */}
+        {adsenseId && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${adsenseId}`}
+            crossOrigin="anonymous"
+            strategy="lazyOnload"
+          />
+        )}
       </head>
       <body className="notranslate">
         <link
