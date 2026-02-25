@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed - Infrastructure Migration to Vercel + Supabase (2026-02-24)
+
+**MAJOR CHANGE: Migrated from Google Cloud (Cloud Run + Cloud SQL + GCS) to Vercel + Supabase**
+
+**Platform Migration:**
+- **Compute**: Google Cloud Run → Vercel (serverless edge deployment)
+- **Database**: Cloud SQL → Supabase PostgreSQL with PostGIS
+- **File Storage**: Google Cloud Storage → Supabase Storage
+- **Secrets**: Google Secret Manager → Vercel Environment Variables
+- **CI/CD**: Cloud Build → Vercel automatic deployments
+
+**Configuration Changes:**
+- Added `vercel.json` with `--ignore-scripts` to skip native deps during build
+- Updated `.github/workflows/ci.yml` to remove deploy job (handled by Vercel)
+- Added Supabase client integration in `src/lib/storage.ts`
+- Database connection uses Supabase pooler URL (port 6543)
+
+**Files Removed:**
+- `Dockerfile` - no longer needed (Vercel handles builds)
+- `cloudbuild.yaml` - replaced by Vercel auto-deploy
+- `deploy.sh` - replaced by Vercel auto-deploy
+
+**Documentation Updated:**
+- Updated CLAUDE.md for Vercel + Supabase infrastructure
+- Updated SECURITY.md hosting section
+
+---
+
 ### Added - Segment Snapping, Editing, and Overlap Resolution (2026-02-06)
 
 **Phase 1: Security Fix (Critical)**
@@ -56,7 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Updated snap API tests for new `source` field
 - Updated InteractiveSegmentDrawer tests for new instruction text
 - Reduced coverage threshold to 20% (matching CLAUDE.md specification)
-- All 166 tests passing
+- All 230+ tests passing
 
 ---
 
@@ -86,7 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Made `useMapEvents` a no-op (no auto-firing events)
   - Made `useMap` return stable mock object reference
   - Added `CircleMarker` mock component
-- All 167 tests passing in ~1 second
+- All 230+ tests passing
 
 **Documentation:**
 - Created comprehensive `CI_CD_SETUP.md` with:

@@ -44,17 +44,19 @@ Edit `.env.local` with your settings:
 # Database Configuration
 DATABASE_URL="postgresql://postgres:postgres@localhost:5433/sidewalks_dev"
 
-# JWT Configuration (generate a secure random string)
-JWT_SECRET="your-super-secure-jwt-secret-at-least-32-characters-long"
+# Auth.js Configuration (generate with: openssl rand -base64 32)
+AUTH_SECRET="your-auth-secret-at-least-32-characters-long"
+NEXTAUTH_URL="http://localhost:3000"
+
+# OAuth Credentials (see OAUTH_SETUP.md for setup instructions)
+GOOGLE_CLIENT_ID="your-google-client-id"
+GOOGLE_CLIENT_SECRET="your-google-client-secret"
+GITHUB_CLIENT_ID="your-github-client-id"
+GITHUB_CLIENT_SECRET="your-github-client-secret"
 
 # Application Configuration
 NODE_ENV="development"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
-
-# Features
-ENABLE_REGISTRATION="true"
-ENABLE_FILE_UPLOADS="true"
-MAX_FILE_SIZE_MB="10"
 ```
 
 ### 4. Start the Database
@@ -89,7 +91,7 @@ DATABASE_URL="postgresql://postgres:postgres@localhost:5433/sidewalks_dev" npm r
 
 This will:
 - Fetch sidewalk data from OpenStreetMap's Overpass API
-- Import 334+ sidewalk segments for Alameda, CA
+- Import 2,600+ sidewalk segments for Alameda, CA
 - Store data in the `reference_sidewalks` table
 - Enable coordinate snapping features
 
@@ -128,7 +130,7 @@ Visit http://localhost:3000 to see:
 
 The admin interface requires authentication. To create an admin user:
 
-1. Register a new account at http://localhost:3000
+1. Sign in with Google or GitHub OAuth at http://localhost:3000
 2. Manually update the user role in the database:
 
 ```bash
@@ -142,7 +144,7 @@ UPDATE users SET role = 'admin' WHERE email = 'your-email@example.com';
 \q
 ```
 
-3. Log in again and access http://localhost:3000/admin
+3. Sign out and sign back in, then access http://localhost:3000/admin
 
 ## Development Workflow
 
@@ -213,8 +215,8 @@ npm start
 
 The application uses a dual-database approach:
 
-- **Development**: PostgreSQL with PostGIS via Docker
-- **Production**: Cloud SQL PostgreSQL with PostGIS
+- **Development**: PostgreSQL with PostGIS via Docker (or SQLite)
+- **Production**: Supabase PostgreSQL with PostGIS
 - **Abstraction Layer**: `src/lib/database.ts` automatically switches between implementations
 
 Key database tables:
@@ -344,7 +346,7 @@ Now that you have the development environment set up:
 
 - [README.md](./README.md) - Project overview and features
 - [CLAUDE.md](./CLAUDE.md) - Detailed architectural documentation
-- [DEPLOYMENT.md](./DEPLOYMENT.md) - Production deployment guide
+- [OAUTH_SETUP.md](./OAUTH_SETUP.md) - OAuth credential setup guide
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Contribution guidelines
 - [SECURITY.md](./SECURITY.md) - Security best practices
 

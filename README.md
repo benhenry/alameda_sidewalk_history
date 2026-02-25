@@ -10,17 +10,17 @@ A comprehensive web application for documenting and exploring the historical sid
 - **Filtering System**: Filter segments by contractor, year, decade, or street
 - **Detailed Information**: Click on any segment to view contractor details, year, photos, and notes
 - **Search Functionality**: Search for specific contractors or locations
-- **User Authentication**: Secure registration and login system
+- **User Authentication**: OAuth sign-in with Google and GitHub
 
 ### Geospatial Features (PostGIS)
-- **Reference Sidewalk Database**: Pre-loaded database of 334+ actual sidewalk segments from OpenStreetMap
+- **Reference Sidewalk Database**: Pre-loaded database of 2,600+ actual sidewalk segments from OpenStreetMap
 - **Smart Coordinate Snapping**: Automatically snaps user-drawn segments to nearby reference sidewalks (within 50m)
 - **High Precision**: PostGIS-powered spatial queries with sub-meter accuracy (0.33m average)
 - **Spatial Indexing**: GIST spatial indexes for fast geographic queries
 - **Admin Reference Management**: Admin interface to view, edit, and manage reference sidewalk data
 
 ### Wiki-Style Contributions
-- **User Registration**: Anyone can create an account to contribute
+- **OAuth Sign-In**: Sign in with Google or GitHub to contribute
 - **Community Contributions**: Logged-in users can add segments and upload photos
 - **Contribution Modal**: User-friendly interface for adding new data
 - **Photo Uploads**: Upload contractor stamps, special markings, and general photos
@@ -33,17 +33,17 @@ A comprehensive web application for documenting and exploring the historical sid
 - **Moderation Tools**: Review and manage community contributions
 
 ### Authentication & Security
-- **JWT Authentication**: Secure token-based authentication
-- **Password Security**: BCrypt hashing with strong password requirements
+- **Auth.js v5 (OAuth)**: Google and GitHub OAuth authentication
+- **No Password Storage**: OAuth-only eliminates password vulnerabilities
 - **Role-Based Access Control**: Admin and user permission levels
 - **Protected Routes**: Middleware-protected admin and API endpoints
-- **Session Management**: Persistent login with secure cookie storage
+- **Session Management**: Database-backed sessions with 30-day expiry
 
 ### Testing & Quality
-- **Comprehensive Test Suite**: 85%+ code coverage with Jest and React Testing Library
+- **Comprehensive Test Suite**: 230+ tests with Jest and React Testing Library
 - **Unit Tests**: Components, utilities, and API endpoints
 - **Integration Tests**: Authentication flows and user interactions
-- **CI/CD Pipeline**: Automated testing and deployment with GitHub Actions
+- **CI/CD Pipeline**: Automated testing via GitHub Actions, deployment via Vercel
 - **Coverage Reporting**: Detailed test coverage metrics and reporting
 
 ## Getting Started
@@ -146,7 +146,7 @@ npm run test:ci
   - **Legacy Support**: SQLite with better-sqlite3 (development only)
 - **Geospatial**: PostGIS for spatial queries, coordinate snapping, and geographic indexing
 - **Data Sources**: OpenStreetMap via Overpass API for reference sidewalk data
-- **File Upload**: Multer for photo handling, Google Cloud Storage for production
+- **File Upload**: Next.js formData API for photo handling, Supabase Storage for production
 - **Icons**: Lucide React
 
 ## Project Structure
@@ -168,9 +168,12 @@ src/
 ├── components/                   # Reusable React components
 │   ├── Map.tsx                  # Interactive map component
 │   ├── Sidebar.tsx              # Filter and information sidebar
-│   ├── SegmentForm.tsx          # Add/edit segment form
-│   ├── PhotoUpload.tsx          # Photo upload component
-│   └── InteractiveSegmentDrawer.tsx # Drawing tool with snapping
+│   ├── AuthModal.tsx            # OAuth login modal
+│   ├── ContributeModal.tsx      # User segment creation
+│   ├── AdminSegmentApproval.tsx # Admin approval interface
+│   ├── AdminSegmentEditor.tsx   # Admin segment editing
+│   ├── InteractiveSegmentDrawer.tsx # Drawing tool with snapping
+│   └── ...                      # Additional UI components
 ├── lib/                         # Utility libraries
 │   ├── database.ts              # Database abstraction layer
 │   ├── database-postgres.ts     # PostgreSQL + PostGIS implementation
@@ -274,8 +277,10 @@ npm run db:reset
 - `GET /api/contractors` - Contractor list with statistics
 - `POST /api/photos` - Photo upload
 - `DELETE /api/photos/[id]` - Photo removal
-- `POST /api/auth/login` - User authentication
-- `POST /api/auth/register` - User registration
+- `GET/POST /api/auth/[...nextauth]` - Auth.js OAuth endpoints
+- `GET /api/autocomplete/contractors` - Contractor autocomplete
+- `GET /api/autocomplete/blocks` - Block autocomplete
+- `GET /api/reverse-geocode` - Reverse geocoding
 
 ### Building for Production
 ```bash
@@ -283,7 +288,15 @@ npm run build
 npm start
 ```
 
+## Deployment
+
+This application is deployed on **Vercel** with **Supabase** for database and file storage:
+- **Platform**: Vercel (serverless edge deployment)
+- **Database**: Supabase PostgreSQL with PostGIS
+- **Storage**: Supabase Storage for photo uploads
+- **CI/CD**: GitHub Actions for tests, Vercel for automatic deployment
+- **Live Site**: https://alameda-sidewalks.com
+
 ## License
 
 This project is designed for historical documentation and community use in Alameda, CA.
->>>>>>> ad57703 (First commit)

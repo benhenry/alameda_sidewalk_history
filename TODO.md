@@ -12,27 +12,25 @@
    - ✅ Created comprehensive OAUTH_SETUP.md guide
 
 **P1 - Deployment Automation (COMPLETED 2026-01-16)**
-2. ✅ **COMPLETED**: CI/CD Pipeline with GitHub Actions + Cloud Build
+2. ✅ **COMPLETED**: CI/CD Pipeline with GitHub Actions + Vercel
    - ✅ GitHub Actions workflow runs tests on PRs
-   - ✅ Deploy job triggers Cloud Build on push to main
-   - ✅ Workload Identity Federation for keyless GCP auth
-   - ✅ Cloud SQL connection via Unix socket
-   - ✅ All secrets managed via Google Secret Manager
-   - ✅ Documented in CI_CD_SETUP.md
+   - ✅ Vercel auto-deploys on push to main
+   - ✅ Preview deployments for pull requests
+   - ✅ Environment variables managed via Vercel Dashboard
 
 **P2 - Domain & Production Setup (COMPLETED 2026-01-16)**
 3. ✅ **COMPLETED**: Custom domain and production configuration
    - ✅ Custom domain: alameda-sidewalks.com
-   - ✅ SSL certificate (automatic via Cloud Run)
+   - ✅ SSL certificate (automatic via Vercel)
    - ✅ OAuth redirect URIs configured for production
-   - ✅ `AUTH_TRUST_HOST=true` for Cloud Run proxy
+   - ✅ `AUTH_TRUST_HOST=true` for Vercel proxy
    - ✅ `allowDangerousEmailAccountLinking` for OAuth account linking
 
 **P3 - Production Infrastructure (COMPLETED)**
-4. ✅ **COMPLETED**: Production environment
-   - ✅ Cloud SQL database with PostGIS extension
-   - ✅ Cloud Storage bucket for file uploads
-   - ✅ Production environment variables in Secret Manager
+4. ✅ **COMPLETED**: Production environment (migrated from GCP to Vercel + Supabase)
+   - ✅ Supabase PostgreSQL with PostGIS extension
+   - ✅ Supabase Storage for file uploads
+   - ✅ Production environment variables in Vercel Dashboard
    - ✅ Reference sidewalk data imported (2,600+ sidewalks)
 
 ---
@@ -51,7 +49,7 @@
 
 3. Reference sidewalk table creation
    - `reference_sidewalks` table needs to be created in production
-   - Run migration SQL in Cloud SQL
+   - Run migration SQL in Supabase
 
 **P5 - Admin Features (PARTIALLY COMPLETED 2026-02-06)**
 1. User management dashboard
@@ -77,9 +75,8 @@
 **2026-01-16 - CI/CD & Production Deployment**
 - ✅ GitHub Actions CI/CD pipeline with Workload Identity Federation
 - ✅ Fixed react-leaflet mock causing infinite re-renders in tests
-- ✅ Auth.js configuration for Cloud Run (trustHost, SSL disabled for Unix sockets)
+- ✅ Auth.js configuration for Vercel (trustHost)
 - ✅ OAuth account linking with existing users (allowDangerousEmailAccountLinking)
-- ✅ Fixed cloudbuild.yaml to use custom domain URL
 
 **2025-12-25 - OAuth Authentication Migration**
 - ✅ Replaced custom password auth with Auth.js v5
@@ -101,7 +98,7 @@
 
 ---
 
-### OPEN BUGS
+### OPEN ITEMS
 
 1. **Street Name Validation**: Inconsistent street names allowed
    - "Fairview Avenue" vs. "Fairview Ave." vs. "Fairview Ave"
@@ -109,7 +106,4 @@
 
 2. **Contractor Validation**: No fuzzy matching for similar names
    - Could result in duplicate contractors with slight name variations
-
-3. **Reference Sidewalks Table**: May not exist in production database
-   - Need to run migration: `CREATE TABLE IF NOT EXISTS reference_sidewalks...`
 

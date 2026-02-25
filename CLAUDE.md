@@ -17,7 +17,7 @@
 - **Current threshold: 20% minimum** (realistic for current codebase state)
 - **ALWAYS verify tests when adding, changing, or modifying code under test**
 - **Run `npm run test:ci` before committing changes**
-- **All 229+ tests must pass before deployment**
+- **All 212+ tests must pass before deployment**
 - **Goal: Gradually increase coverage as new features are added**
 
 ---
@@ -51,7 +51,7 @@
 - **Development**: SQLite with `better-sqlite3` or local PostgreSQL via Docker
 - **Production**: Supabase PostgreSQL with PostGIS
 - **Database Abstraction**: Smart switcher at `src/lib/database.ts`
-- **File Storage**: Local (dev) vs Supabase Storage (production)
+- **File Storage**: Three-tier: Local (dev), Supabase Storage (primary production), GCS (fallback production)
 
 ### Deployment Infrastructure
 - **Platform**: Vercel (serverless edge deployment)
@@ -98,7 +98,7 @@ The app uses a sophisticated database abstraction layer:
 
 **Smart Switcher Logic** (`src/lib/database.ts`):
 ```typescript
-const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql')
+const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql') || process.env.PGHOST || process.env.NODE_ENV === 'production'
 ```
 
 ### Critical Database Files
@@ -118,28 +118,44 @@ src/
 ├── app/                          # Next.js 14 App Router
 │   ├── api/                     # API routes (all async)
 │   │   ├── auth/               # Auth.js endpoints
-│   │   ├── segments/           # Sidewalk segment CRUD
+│   │   ├── segments/           # Sidewalk segment CRUD + history/comments
 │   │   ├── contractors/        # Contractor statistics
 │   │   ├── photos/             # File upload handling
-│   │   ├── admin/              # Admin-only operations
+│   │   ├── autocomplete/       # Contractor and block autocomplete
+│   │   ├── reverse-geocode/    # Reverse geocoding
+│   │   ├── admin/              # Admin-only operations (segments, conflicts, perf)
 │   │   └── sidewalks/          # Reference sidewalk data
 │   ├── admin/                  # Admin interface
 │   ├── globals.css            # Tailwind imports
 │   ├── layout.tsx             # Root layout
 │   └── page.tsx              # Home page (main map)
-├── components/                 # React components
+├── components/                 # React components (~20 components)
 │   ├── Map.tsx               # Main Leaflet map component
 │   ├── Sidebar.tsx           # Filters and segment list
 │   ├── AuthModal.tsx         # OAuth login modal
 │   ├── ContributeModal.tsx   # User segment creation
 │   ├── AdminSegmentApproval.tsx # Admin approval interface
+│   ├── AdminSegmentEditor.tsx # Admin segment editing
+│   ├── AdminConflictResolution.tsx # Overlap resolution
 │   ├── InteractiveSegmentDrawer.tsx # Map drawing tools
+│   ├── SegmentEditHistory.tsx # Segment edit history
+│   ├── SegmentComments.tsx   # Segment comments
+│   ├── AutocompleteInput.tsx # Autocomplete for fields
+│   ├── UserMenu.tsx          # User profile menu
+│   ├── Providers.tsx         # SessionProvider wrapper
+│   ├── Toast.tsx             # Toast notifications
 │   └── __tests__/            # Component tests
-├── lib/                       # Core utilities
+├── lib/                       # Core utilities (~19 modules)
 │   ├── database.ts           # **Main database abstraction**
-│   ├── storage.ts            # File storage (local/Supabase)
+│   ├── storage.ts            # File storage (local/Supabase/GCS)
 │   ├── validation.ts         # Input validation & sanitization
-│   ├── sidewalk-validation.ts # Overpass API integration
+│   ├── street-validation.ts  # Street name validation
+│   ├── get-auth-user.ts      # Auth user extraction helper
+│   ├── perf-logger.ts        # Performance logging
+│   ├── rate-limiter.ts       # API rate limiting
+│   ├── batch-correction.ts   # Batch correction algorithm
+│   ├── auth-context.tsx      # Auth context provider
+│   ├── sidewalk-context.tsx  # Sidewalk data context
 │   └── __tests__/            # Unit tests
 ├── types/                     # TypeScript definitions
 │   ├── sidewalk.ts           # Core data models
@@ -203,7 +219,7 @@ export const dynamic = 'force-dynamic'
 
 ### Current Test Coverage
 - **Minimum Threshold**: 20% (configured in jest.config.js)
-- **Current State**: 229+ tests across 26 test suites
+- **Current State**: 212+ tests across 26 test suites
 - **Goal**: Gradually increase coverage as new features are added
 
 ### Test Commands
@@ -328,7 +344,7 @@ npm run test:ci      # CI mode with coverage
 Before ending any Claude session:
 
 - [ ] All TodoWrite tasks marked complete
-- [ ] **All tests passing (`npm run test:ci`)** - currently 229+ tests
+- [ ] **All tests passing (`npm run test:ci`)** - currently 212+ tests
 - [ ] **Coverage meets 20% minimum threshold**
 - [ ] TypeScript validation clean (`npm run typecheck`)
 - [ ] Build successful (`npm run build`)
@@ -339,7 +355,7 @@ Before ending any Claude session:
 
 ---
 
-*This CLAUDE.md was last updated: 2026-02-24*
+*This CLAUDE.md was last updated: 2026-02-25*
 *Project Version: 0.1.0*
 *Next.js Version: 14.2.31*
 *Deployment: Vercel + Supabase*

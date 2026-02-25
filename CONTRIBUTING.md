@@ -172,7 +172,6 @@ npm run lint
 ## Recognition
 
 Contributors will be recognized in:
-- CONTRIBUTORS.md file
 - Release notes for significant contributions
 - Community acknowledgments
 

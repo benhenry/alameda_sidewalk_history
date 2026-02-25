@@ -177,22 +177,22 @@ When deploying to production, you'll need to:
 
 1. Return to your Google OAuth Client ID settings
 2. Add production URLs:
-   - **Authorized JavaScript origins**: `https://yourdomain.com`
-   - **Authorized redirect URIs**: `https://yourdomain.com/api/auth/callback/google`
+   - **Authorized JavaScript origins**: `https://alameda-sidewalks.com`
+   - **Authorized redirect URIs**: `https://alameda-sidewalks.com/api/auth/callback/google`
 3. Update OAuth consent screen to "In Production" status
-4. Add production environment variables to Google Secret Manager or your hosting platform
+4. Add production environment variables in Vercel Dashboard
 
 ### GitHub OAuth (Production)
 
 1. Create a **separate** OAuth App for production:
-   - **Homepage URL**: `https://yourdomain.com`
-   - **Callback URL**: `https://yourdomain.com/api/auth/callback/github`
+   - **Homepage URL**: `https://alameda-sidewalks.com`
+   - **Callback URL**: `https://alameda-sidewalks.com/api/auth/callback/github`
 2. Generate new client ID and secret for production
-3. Add to production environment variables
+3. Add to Vercel environment variables
 
 ### Production Environment Variables
 
-Add to your production environment (Google Cloud Run / Secret Manager):
+Add to your production environment (Vercel Dashboard → Settings → Environment Variables):
 
 ```bash
 GOOGLE_CLIENT_ID="production-google-client-id"
@@ -200,7 +200,8 @@ GOOGLE_CLIENT_SECRET="production-google-client-secret"
 GITHUB_CLIENT_ID="production-github-client-id"
 GITHUB_CLIENT_SECRET="production-github-client-secret"
 AUTH_SECRET="production-auth-secret-different-from-dev"
-NEXTAUTH_URL="https://yourdomain.com"
+NEXTAUTH_URL="https://alameda-sidewalks.com"
+AUTH_TRUST_HOST="true"
 ```
 
 ---
@@ -269,7 +270,7 @@ async signIn({ user, account }) {
 
 3. **Use HTTPS in production**
    - OAuth requires HTTPS for production
-   - Google Cloud Run provides this automatically
+   - Vercel provides this automatically
 
 4. **Limit OAuth scopes**
    - Only request `userinfo.email` and `userinfo.profile`

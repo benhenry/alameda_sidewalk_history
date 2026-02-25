@@ -133,26 +133,6 @@ export async function deletePhoto(id: string): Promise<boolean> {
   return dbModule.deletePhoto(id)
 }
 
-export async function createPasswordResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-  const dbModule = await getDbModule()
-  return dbModule.createPasswordResetToken(userId, token, expiresAt)
-}
-
-export async function getPasswordResetToken(token: string): Promise<any> {
-  const dbModule = await getDbModule()
-  return dbModule.getPasswordResetToken(token)
-}
-
-export async function markPasswordResetTokenAsUsed(token: string): Promise<void> {
-  const dbModule = await getDbModule()
-  return dbModule.markPasswordResetTokenAsUsed(token)
-}
-
-export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
-  const dbModule = await getDbModule()
-  return dbModule.updateUserPassword(userId, passwordHash)
-}
-
 export async function healthCheck(): Promise<boolean> {
   const dbModule = await getDbModule()
   return dbModule.healthCheck()
@@ -475,10 +455,6 @@ export default {
   createPhoto,
   getPhotosBySegmentId,
   deletePhoto,
-  createPasswordResetToken,
-  getPasswordResetToken,
-  markPasswordResetTokenAsUsed,
-  updateUserPassword,
   healthCheck,
   closeDatabase,
 }

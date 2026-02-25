@@ -42,8 +42,7 @@
 1. **Environment Variables**
    ```bash
    # Generate secure secrets
-   openssl rand -base64 32  # For JWT_SECRET
-   openssl rand -base64 32  # For ENCRYPTION_KEY
+   openssl rand -base64 32  # For AUTH_SECRET (Auth.js session encryption)
    ```
 
 2. **Database Security**
