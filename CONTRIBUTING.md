@@ -51,7 +51,7 @@ npm run lint
 
 ### Testing Requirements
 - All new features must include unit tests
-- Maintain minimum 85% code coverage
+- Maintain minimum 20% code coverage (threshold is gradually increasing)
 - Tests should cover both happy path and error cases
 - Use descriptive test names and organize tests logically
 

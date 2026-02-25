@@ -15,11 +15,11 @@
 - SQL injection prevention through prepared statements
 - XSS protection through input sanitization
 
-### Authentication Security
-- JWT tokens with secure secrets
-- Password hashing with bcrypt
-- Role-based access control
-- Token expiration and refresh
+### Authentication Security (OAuth)
+- Auth.js v5 with Google and GitHub OAuth
+- No password storage (OAuth only)
+- Database-backed sessions with 30-day expiry
+- Role-based access control (admin/user)
 
 ### Bot Protection
 - User agent analysis
@@ -68,24 +68,18 @@
    - [ ] Unusual activity alerts
    - [ ] Regular security audits
 
-## 🏗️ Hosting Recommendations
+## 🏗️ Current Hosting
 
-### Low-Cost Options:
-1. **Vercel** (Free tier + Pro when needed)
-   - Built-in DDoS protection
-   - Edge functions for rate limiting
-   - Automatic HTTPS
-   - ~$20/month for production usage
+### Vercel + Supabase
+- **Vercel**: Serverless deployment with built-in DDoS protection
+  - Automatic HTTPS and edge caching
+  - Preview deployments for PRs
+  - Custom domain support
 
-2. **Railway** + CloudFlare
-   - $5/month base hosting
-   - CloudFlare free tier for DDoS protection
-   - Custom domains and SSL
-
-3. **DigitalOcean App Platform**
-   - $12/month for basic apps
-   - Add CloudFlare for protection
-   - More control over security configs
+- **Supabase**: PostgreSQL database and file storage
+  - PostGIS for geospatial queries
+  - Row-level security available
+  - Automatic backups
 
 ### Production Security Add-ons:
 

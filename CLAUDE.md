@@ -4,7 +4,7 @@
 
 ### Always Start With These Tasks
 1. **Read TODO.md** - Check current open items and bugs
-2. **Review ERRORS.md** - Check for any deployment or runtime errors 
+2. **Review ERRORS.md** - Check for any deployment or runtime errors
 3. **Scan CHANGELOG.md** - Understand recent changes and current state
 4. **Check git status** - See what files have been modified since last session
 
@@ -26,12 +26,14 @@
 
 **Alameda Sidewalk Map** is a community-driven web application for documenting historical sidewalk contractors and installation years throughout Alameda, CA. Users can contribute wiki-style entries with photos, contractor information, and historical context.
 
+**Live Site**: https://alameda-sidewalks.com
+
 ### Core Functionality
 - **Interactive Map**: Full-screen Leaflet map with color-coded segments by decade
 - **Community Contributions**: OAuth sign-in, photo uploads, segment creation
 - **Admin Interface**: Full CRUD operations, user management, moderation tools
-- **Authentication**: Auth.js v5 with Google OAuth and GitHub OAuth (replaced password auth on 2025-12-25)
-- **File Management**: Photo uploads with Google Cloud Storage integration
+- **Authentication**: Auth.js v5 with Google OAuth and GitHub OAuth
+- **File Management**: Photo uploads with Supabase Storage
 - **Geospatial Features**: PostGIS-powered coordinate snapping with 2,600+ reference sidewalks from OpenStreetMap
 
 ---
@@ -46,35 +48,32 @@
 - **Lucide React** for icons
 
 ### Backend & Database
-- **Development**: SQLite with `better-sqlite3` (devDependencies only)
-- **Production**: PostgreSQL with `pg` library
+- **Development**: SQLite with `better-sqlite3` or local PostgreSQL via Docker
+- **Production**: Supabase PostgreSQL with PostGIS
 - **Database Abstraction**: Smart switcher at `src/lib/database.ts`
-- **File Storage**: Local (dev) vs Google Cloud Storage (production)
+- **File Storage**: Local (dev) vs Supabase Storage (production)
 
-### Deployment Infrastructure  
-- **Platform**: Google Cloud Run (serverless containers)
-- **Database**: Cloud SQL PostgreSQL with automated backups
-- **Storage**: Google Cloud Storage for images
-- **CI/CD**: GitHub Actions with automated deployment
-- **Build**: Docker containerization with multi-stage builds
+### Deployment Infrastructure
+- **Platform**: Vercel (serverless edge deployment)
+- **Database**: Supabase PostgreSQL with PostGIS
+- **Storage**: Supabase Storage for images
+- **CI/CD**: GitHub Actions for tests, Vercel for automatic deployment
+- **Domain**: Custom domain via Vercel
 
 ### Key Dependencies
 ```json
 {
   "dependencies": {
-    "@google-cloud/storage": "^7.13.0",
+    "@supabase/supabase-js": "^2.97.0",
     "@turf/turf": "^7.2.0",
-    "bcryptjs": "^2.4.3", 
-    "jsonwebtoken": "^9.0.2",
     "leaflet": "^1.9.4",
-    "multer": "^2.0.0",
     "next": "^14.2.31",
+    "next-auth": "^5.0.0-beta.30",
     "pg": "^8.13.0",
     "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
-    "better-sqlite3": "^9.2.2",
-    "sqlite3": "^5.1.6"
+    "better-sqlite3": "^9.2.2"
   }
 }
 ```
@@ -86,13 +85,14 @@
 ### Multi-Environment Database Strategy
 The app uses a sophisticated database abstraction layer:
 
-**Development**: SQLite (`better-sqlite3`)
-- Database file: `data/sidewalks.db` 
-- Dependencies in devDependencies only (crucial for deployment)
-- Async wrapper at `src/lib/database-sqlite-async.ts`
+**Development**: SQLite (`better-sqlite3`) or local PostgreSQL
+- SQLite file: `data/sidewalks.db`
+- Docker PostgreSQL: `localhost:5433`
+- Dependencies in devDependencies only (crucial for Vercel deployment)
 
-**Production**: PostgreSQL (`pg`)
-- Cloud SQL with connection pooling
+**Production**: Supabase PostgreSQL
+- Connection pooler URL for optimal performance
+- PostGIS extension for geospatial queries
 - Schema: `database-setup.sql`
 - Implementation: `src/lib/database-postgres.ts`
 
@@ -117,54 +117,40 @@ const usePostgres = process.env.DATABASE_URL?.startsWith('postgresql')
 src/
 ├── app/                          # Next.js 14 App Router
 │   ├── api/                     # API routes (all async)
-│   │   ├── auth/               # Authentication endpoints
-│   │   │   ├── login/route.ts
-│   │   │   ├── register/route.ts
-│   │   │   ├── me/route.ts
-│   │   │   ├── forgot-password/route.ts
-│   │   │   └── reset-password/route.ts
+│   │   ├── auth/               # Auth.js endpoints
 │   │   ├── segments/           # Sidewalk segment CRUD
-│   │   ├── contractors/        # Contractor statistics  
+│   │   ├── contractors/        # Contractor statistics
 │   │   ├── photos/             # File upload handling
-│   │   ├── admin/segments/     # Admin-only operations
-│   │   └── sidewalks/          # Overpass API integration
+│   │   ├── admin/              # Admin-only operations
+│   │   └── sidewalks/          # Reference sidewalk data
 │   ├── admin/                  # Admin interface
-│   ├── reset-password/         # Password reset page
 │   ├── globals.css            # Tailwind imports
 │   ├── layout.tsx             # Root layout
 │   └── page.tsx              # Home page (main map)
 ├── components/                 # React components
-│   ├── Map.tsx               # Main Leaflet map component  
+│   ├── Map.tsx               # Main Leaflet map component
 │   ├── Sidebar.tsx           # Filters and segment list
-│   ├── SegmentForm.tsx       # Add/edit segment form
-│   ├── PhotoUpload.tsx       # File upload component
-│   ├── AuthModal.tsx         # Login/register modals
-│   ├── UserMenu.tsx          # User account menu
+│   ├── AuthModal.tsx         # OAuth login modal
 │   ├── ContributeModal.tsx   # User segment creation
 │   ├── AdminSegmentApproval.tsx # Admin approval interface
 │   ├── InteractiveSegmentDrawer.tsx # Map drawing tools
 │   └── __tests__/            # Component tests
 ├── lib/                       # Core utilities
 │   ├── database.ts           # **Main database abstraction**
-│   ├── auth.ts               # JWT utilities
+│   ├── storage.ts            # File storage (local/Supabase)
 │   ├── validation.ts         # Input validation & sanitization
 │   ├── sidewalk-validation.ts # Overpass API integration
-│   ├── storage.ts            # File storage abstraction
-│   ├── rate-limiter.ts       # API rate limiting
-│   ├── captcha.ts            # Bot protection
 │   └── __tests__/            # Unit tests
 ├── types/                     # TypeScript definitions
 │   ├── sidewalk.ts           # Core data models
 │   └── auth.ts               # Authentication types
-└── middleware.ts             # Next.js middleware (auth/CORS)
+└── middleware.ts             # Next.js middleware
 ```
 
 ### Configuration Files
 ```
-├── Dockerfile                # Multi-stage Docker build
-├── .dockerignore            # Docker build exclusions
-├── cloudbuild.yaml          # Google Cloud Build config
-├── database-setup.sql       # PostgreSQL schema
+├── vercel.json              # Vercel deployment config
+├── database-setup.sql       # PostgreSQL/Supabase schema
 ├── next.config.js          # Next.js configuration
 ├── tailwind.config.js      # Tailwind CSS config
 ├── jest.config.js          # Testing configuration
@@ -182,13 +168,6 @@ src/
 export const dynamic = 'force-dynamic'
 ```
 
-**Routes with dynamic export**:
-- `/api/auth/me` - Uses authorization header
-- `/api/photos` - Uses user ID header  
-- `/api/admin/segments` - Uses role/user headers
-- `/api/segments` - Uses user ID header
-- `/api/sidewalks` - Uses no-store fetch
-
 ### Authentication Flow (Auth.js v5 OAuth)
 1. **OAuth Sign-in**: `/api/auth/signin/google` or `/api/auth/signin/github`
    - Redirects to OAuth provider
@@ -203,19 +182,18 @@ export const dynamic = 'force-dynamic'
 3. **Account Linking**: `allowDangerousEmailAccountLinking: true`
    - OAuth accounts auto-link to existing users by email
    - Preserves existing user roles (including admin)
-   - Accounts stored in `accounts` table
 
-4. **Cloud Run Configuration** (Critical):
-   - `trustHost: true` in auth.ts (or `AUTH_TRUST_HOST=true` env var)
-   - `NEXTAUTH_URL` must point to custom domain, not Cloud Run URL
-   - SSL disabled for Cloud SQL Unix socket connections
+4. **Vercel Configuration**:
+   - `trustHost: true` in auth.ts
+   - `NEXTAUTH_URL` must point to custom domain
+   - `AUTH_TRUST_HOST=true` environment variable
 
 ### File Upload System
 **Development**: Local storage (`public/uploads/`)
-**Production**: Google Cloud Storage
+**Production**: Supabase Storage
 
 **Implementation**: `src/lib/storage.ts`
-- Automatic environment detection
+- Automatic environment detection via `NEXT_PUBLIC_SUPABASE_URL`
 - Consistent API for both storage types
 - Image optimization with Sharp
 
@@ -237,37 +215,11 @@ npm run test:ci       # CI mode (no watch)
 npm run test:coverage-report # Detailed HTML report
 ```
 
-### Test Organization
-```
-src/
-├── __tests__/                 # Integration tests
-├── components/__tests__/      # Component tests  
-├── lib/__tests__/            # Unit tests
-└── app/api/*/__tests__/      # API route tests
-```
-
 ### Testing Libraries
 - **Jest** - Test runner and assertions
 - **React Testing Library** - Component testing
 - **jsdom** - Browser environment simulation
 - **@testing-library/user-event** - User interaction testing
-
----
-
-## Known Issues & Bug Tracking
-
-### Open Bugs (from TODO.md)
-1. **Street Validation**: Inconsistent street names ("Fairview Avenue" vs "Fairview Ave")
-2. **Coordinate Snapping**: Segments not pegged to actual sidewalks
-3. **Input Validation**: No fuzzy matching for existing contractors/streets
-
-### Recent Fixes (from CHANGELOG.md)
-- ✅ Fixed react-leaflet mock causing infinite re-renders in tests (2026-01-16)
-- ✅ Fixed OAuth PKCE errors with `AUTH_TRUST_HOST=true` (2026-01-16)
-- ✅ Fixed Cloud SQL SSL connection errors for Unix sockets (2026-01-16)
-- ✅ Fixed OAuth account linking with `allowDangerousEmailAccountLinking` (2026-01-16)
-- ✅ Fixed CI/CD pipeline with Workload Identity Federation (2026-01-16)
-- ✅ Fixed Docker build standalone directory issues (2026-01-15)
 
 ---
 
@@ -283,103 +235,47 @@ npm run typecheck    # TypeScript validation
 npm run lint         # ESLint checking
 
 # Database
+npm run db:start     # Start local PostgreSQL via Docker
+npm run db:stop      # Stop local PostgreSQL
 npm run migrate-db   # Database migrations
-npm run fix-db       # Database repair utilities
 
-# Security  
-npm audit           # Security audit
-npm audit fix       # Fix security issues
+# Testing
+npm test             # Run tests
+npm run test:ci      # CI mode with coverage
 ```
 
 ### Environment Setup
 1. **Development**: Copy `.env.local.example` to `.env.local`
-2. **Production**: Use `.env.production.example` as template
+2. **Production**: Set variables in Vercel Dashboard
 3. **Required Variables**:
    ```bash
-   JWT_SECRET=your-super-secure-jwt-secret
-   NODE_ENV=development
-   NEXT_PUBLIC_APP_URL=http://localhost:3000
-   # Optional: DATABASE_URL for PostgreSQL override
+   DATABASE_URL=postgresql://...
+   AUTH_SECRET=your-auth-secret
+   NEXTAUTH_URL=https://your-domain.com
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
    ```
-
----
-
-## Data Models & Schema
-
-### Core Entities
-
-**SidewalkSegment**:
-```typescript
-interface SidewalkSegment {
-  id: string                    // UUID
-  street: string                // Street name
-  block: string                 // Block identifier  
-  contractor: string            // Contractor name
-  year: number                  // Installation year
-  coordinates: [number, number][] // [lat, lng] pairs
-  specialMarks?: string[]       // Special markings
-  notes?: string                // Optional notes
-  status: 'pending' | 'approved' | 'rejected'
-  createdBy?: string            // User ID
-  approvedBy?: string           // Admin ID
-  createdAt: Date
-  updatedAt: Date
-}
-```
-
-**User**:
-```typescript
-interface User {
-  id: string                    // UUID
-  email: string                 // Unique email
-  username: string              // Unique username
-  role: 'admin' | 'user'       // Permission level
-  createdAt: Date
-  lastLoginAt?: Date
-  password_hash?: string        // Internal use only
-}
-```
-
-**Photo**:
-```typescript
-interface Photo {
-  id: string                    // UUID
-  sidewalkSegmentId: string     // Foreign key
-  filename: string              // Storage filename
-  originalName: string          // User's filename
-  mimetype: string              // File type
-  size: number                  // File size in bytes
-  storageUrl: string            // Access URL
-  uploadedBy?: string           // User ID
-  createdAt: Date
-}
-```
 
 ---
 
 ## Deployment & Infrastructure
 
-### Google Cloud Platform Setup
-1. **Cloud Run**: Serverless container deployment
-2. **Cloud SQL**: PostgreSQL database with automated backups
-3. **Cloud Storage**: Image and file storage
-4. **Secret Manager**: Environment variables and keys
-5. **Cloud Build**: CI/CD pipeline from GitHub
+### Vercel Deployment
+- **Automatic**: Pushes to `main` branch deploy automatically
+- **Preview**: Pull requests get preview deployments
+- **Environment**: Variables set in Vercel Dashboard
+- **Build**: Uses `vercel.json` with `--ignore-scripts` to skip native deps
 
-### Docker Configuration
-- **Multi-stage build** for optimization
-- **Node.js 18 Alpine** base image
-- **Standard Next.js pattern** (not standalone)
-- **Production dependencies only** in final stage
+### Supabase Setup
+1. **Database**: PostgreSQL with PostGIS extension
+2. **Storage**: `photos` bucket for image uploads
+3. **Connection**: Use pooler URL (port 6543) for serverless
 
-### GitHub Actions CI/CD
+### GitHub Actions CI
 - **Workflow**: `.github/workflows/ci.yml`
-- **PR Trigger**: Runs test + build jobs
-- **Push to main**: Runs test + build + deploy jobs
-- **Authentication**: Workload Identity Federation (keyless GCP auth)
-- **Deploy**: Triggers Cloud Build which deploys to Cloud Run
-- **Secrets Required**: `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT`, `GCP_WORKLOAD_IDENTITY_PROVIDER`
-- **Documentation**: See `CI_CD_SETUP.md` for setup details
+- **Triggers**: PRs and pushes to main
+- **Jobs**: Test (Node 18 & 20), Build
+- **Coverage**: 20% minimum threshold enforced
 
 ---
 
@@ -396,78 +292,7 @@ interface Photo {
 - **OAuth Providers**: Google and GitHub (no password storage)
 - **Session Management**: Database-backed sessions with 30-day expiry
 - **Account Linking**: Auto-links OAuth to existing users by email
-- **Role-based Access**: Admin vs user permissions preserved across OAuth providers
-
-### Rate Limiting & Protection
-- **API Rate Limits**: IP-based request limiting
-- **CAPTCHA System**: Bot protection for registration
-- **CORS Configuration**: Origin restrictions
-
----
-
-## External Integrations
-
-### Overpass API (OpenStreetMap)
-- **Purpose**: Fetch actual sidewalk coordinates for validation
-- **Implementation**: `src/lib/sidewalk-validation.ts`
-- **Rate Limiting**: Respectful API usage
-- **Caching**: Prevent repeated requests
-
-### Google Cloud Services
-- **Cloud Storage**: Image uploads and serving
-- **Cloud SQL**: Production database
-- **Secret Manager**: Secure configuration
-- **Cloud Build**: Automated deployments
-
----
-
-## Common Development Patterns
-
-### Database Operations
-```typescript
-// Always use the abstraction layer
-import { createSegment, getAllSegments } from '@/lib/database'
-
-// Async/await pattern for all operations
-const segments = await getAllSegments()
-const newSegment = await createSegment(segmentData)
-```
-
-### Error Handling
-```typescript
-// Consistent error responses
-return NextResponse.json(
-  { error: 'Descriptive error message' },
-  { status: 400 }
-)
-
-// Try-catch for all async operations
-try {
-  const result = await databaseOperation()
-  return NextResponse.json(result)
-} catch (error) {
-  console.error('Operation failed:', error)
-  return NextResponse.json(
-    { error: 'Internal server error' }, 
-    { status: 500 }
-  )
-}
-```
-
-### Component Patterns
-```typescript
-// Use proper TypeScript interfaces
-interface ComponentProps {
-  segments: SidewalkSegment[]
-  onUpdate: (segment: SidewalkSegment) => void
-}
-
-// Consistent event handling
-const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  // Handle form submission
-}
-```
+- **Role-based Access**: Admin vs user permissions
 
 ---
 
@@ -475,40 +300,26 @@ const handleSubmit = async (e: React.FormEvent) => {
 
 ### Common Issues
 
-**Build Failures**:
-- Check SQLite dependencies are in devDependencies only
+**Build Failures on Vercel**:
+- SQLite dependencies must be in devDependencies only
+- Use `--ignore-scripts` in vercel.json to skip native compilation
 - Verify all API routes have proper dynamic exports
-- Ensure database switcher logic is correct
 
 **Database Connection Issues**:
-- Verify DATABASE_URL format for PostgreSQL
-- Check SQLite file permissions in development
-- Validate database initialization in startup
+- Use Supabase pooler URL (port 6543) not direct connection
+- URL-encode special characters in passwords
+- Verify DATABASE_URL format: `postgresql://postgres.[ref]:[pass]@[host]:6543/postgres`
 
 **OAuth/Auth.js Problems**:
-- **PKCE errors**: Ensure `AUTH_TRUST_HOST=true` and `NEXTAUTH_URL` points to custom domain
-- **redirect_uri_mismatch**: Update OAuth provider with correct callback URL
-- **OAuthAccountNotLinked**: Enable `allowDangerousEmailAccountLinking` in providers
-- **SSL connection errors**: Disable SSL for Cloud SQL Unix socket connections (`ssl: false`)
+- **PKCE errors**: Ensure `AUTH_TRUST_HOST=true` and correct `NEXTAUTH_URL`
+- **redirect_uri_mismatch**: Update OAuth provider with exact callback URL
+- **New user fails**: Ensure `username` and `password_hash` columns are nullable
 - Verify `AUTH_SECRET` is set (32+ character secret)
 
 **File Upload Issues**:
-- Check Google Cloud Storage permissions
-- Verify local upload directory exists
-- Validate file type and size limits
-
-### Debug Commands
-```bash
-# Check environment variables
-echo $DATABASE_URL
-echo $NODE_ENV
-
-# Validate database connection
-node -e "const db = require('./src/lib/database'); db.healthCheck().then(console.log)"
-
-# Test build process
-npm run build 2>&1 | tee build.log
-```
+- Check Supabase Storage bucket permissions (public read)
+- Verify `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_KEY` are set
+- Check file type and size limits
 
 ---
 
@@ -517,17 +328,18 @@ npm run build 2>&1 | tee build.log
 Before ending any Claude session:
 
 - [ ] All TodoWrite tasks marked complete
-- [ ] **🧪 All tests passing (`npm run test:ci`)** - currently 229+ tests
-- [ ] **🧪 Coverage meets 20% minimum threshold**
+- [ ] **All tests passing (`npm run test:ci`)** - currently 229+ tests
+- [ ] **Coverage meets 20% minimum threshold**
 - [ ] TypeScript validation clean (`npm run typecheck`)
 - [ ] Build successful (`npm run build`)
 - [ ] Git status clean (commit changes if needed)
 - [ ] Verify TODO.md reflects current state
 
-**Note:** The `docs-reviewer` and `security-reviewer` agents handle documentation updates and security reviews proactively after code changes. They will be invoked automatically when relevant.
+**Note:** The `docs-reviewer` and `security-reviewer` agents handle documentation updates and security reviews proactively after code changes.
 
 ---
 
-*This CLAUDE.md was last updated: 2026-02-17*
+*This CLAUDE.md was last updated: 2026-02-24*
 *Project Version: 0.1.0*
 *Next.js Version: 14.2.31*
+*Deployment: Vercel + Supabase*
