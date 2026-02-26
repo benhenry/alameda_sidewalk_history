@@ -1,4 +1,5 @@
 import { GET } from '../route'
+import { NextRequest } from 'next/server'
 
 // Mock the database module
 jest.mock('@/lib/database', () => ({
@@ -6,6 +7,10 @@ jest.mock('@/lib/database', () => ({
 }))
 
 import { getAllReferenceSidewalks } from '@/lib/database'
+
+function makeRequest(url = 'http://localhost:3000/api/sidewalks') {
+  return new NextRequest(url)
+}
 
 describe('/api/sidewalks GET', () => {
   beforeEach(() => {
@@ -38,7 +43,7 @@ describe('/api/sidewalks GET', () => {
 
     ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue(mockSidewalks)
 
-    const response = await GET()
+    const response = await GET(makeRequest())
 
     expect(response.status).toBe(200)
     expect(getAllReferenceSidewalks).toHaveBeenCalled()
@@ -58,7 +63,7 @@ describe('/api/sidewalks GET', () => {
   it('should handle empty sidewalk data', async () => {
     ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue([])
 
-    const response = await GET()
+    const response = await GET(makeRequest())
 
     expect(response.status).toBe(200)
 
@@ -75,7 +80,7 @@ describe('/api/sidewalks GET', () => {
   it('should handle database errors', async () => {
     ;(getAllReferenceSidewalks as jest.Mock).mockRejectedValue(new Error('Database error'))
 
-    const response = await GET()
+    const response = await GET(makeRequest())
 
     expect(response.status).toBe(500)
 
@@ -112,7 +117,7 @@ describe('/api/sidewalks GET', () => {
 
     ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue(mockSidewalks)
 
-    const response = await GET()
+    const response = await GET(makeRequest())
 
     expect(response.status).toBe(200)
 

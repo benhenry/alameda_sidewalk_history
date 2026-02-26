@@ -1,16 +1,33 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getAllReferenceSidewalks } from '@/lib/database'
 import { logPerf } from '@/lib/perf-logger'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const apiStart = performance.now()
   try {
+    // Parse optional bounds params for viewport-based loading
+    const { searchParams } = new URL(request.url)
+    const north = searchParams.get('north')
+    const south = searchParams.get('south')
+    const east = searchParams.get('east')
+    const west = searchParams.get('west')
+
+    let bounds: { north: number; south: number; east: number; west: number } | undefined
+    if (north && south && east && west) {
+      bounds = {
+        north: parseFloat(north),
+        south: parseFloat(south),
+        east: parseFloat(east),
+        west: parseFloat(west),
+      }
+    }
+
     // Fetch from our PostGIS reference_sidewalks table (much faster and more complete!)
     const dbStart = performance.now()
-    const referenceSidewalks = await getAllReferenceSidewalks()
-    logPerf('api.sidewalks.dbQuery', performance.now() - dbStart, { count: referenceSidewalks.length })
+    const referenceSidewalks = await getAllReferenceSidewalks(bounds)
+    logPerf('api.sidewalks.dbQuery', performance.now() - dbStart, { count: referenceSidewalks.length, bounded: !!bounds })
 
     // Return LineStrings instead of flattening to individual points
     const processStart = performance.now()
@@ -45,6 +62,10 @@ export async function GET() {
       count: totalCoordinates,
       source: 'reference_sidewalks',
       totalSidewalks: referenceSidewalks.length
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400',
+      },
     })
   } catch (error) {
     console.error('Error fetching sidewalk data:', error)
