@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react'
 import { MapContainer, TileLayer, Polyline, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import { SidewalkSegment, FilterOptions } from '@/types/sidewalk'
+import { useSidewalkData } from '@/lib/sidewalk-context'
 import { Info, Keyboard } from 'lucide-react'
 
 // Fix for default markers in react-leaflet
@@ -66,10 +67,12 @@ const getSegmentColor = (segment: SidewalkSegment, filters: FilterOptions, highl
 function MapEvents({
   onMapClick,
   onViewportChange,
+  onBoundsChange,
   segments
 }: {
   onMapClick: (latlng: [number, number]) => void
   onViewportChange?: (visibleSegments: SidewalkSegment[]) => void
+  onBoundsChange?: (bounds: { north: number; south: number; east: number; west: number }) => void
   segments: SidewalkSegment[]
 }) {
   const map = useMapEvents({
@@ -77,17 +80,25 @@ function MapEvents({
       onMapClick([e.latlng.lat, e.latlng.lng])
     },
     moveend: () => {
-      if (onViewportChange) {
-        // Get current map bounds
-        const bounds = map.getBounds()
+      const bounds = map.getBounds()
 
+      // Notify sidewalk context of new viewport bounds
+      if (onBoundsChange) {
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        })
+      }
+
+      if (onViewportChange) {
         // Filter segments that are visible in viewport
         const visibleSegments = segments.filter(segment => {
           // Check if any coordinate of the segment is within bounds
           return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
         })
 
-        console.log('🗺️ Viewport changed - visible segments:', visibleSegments.length, 'of', segments.length)
         onViewportChange(visibleSegments)
       }
     },
@@ -95,15 +106,26 @@ function MapEvents({
 
   // Trigger initial viewport calculation
   useEffect(() => {
-    if (onViewportChange && map) {
+    if (map) {
       const bounds = map.getBounds()
-      const visibleSegments = segments.filter(segment => {
-        return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
-      })
-      console.log('🗺️ Initial viewport - visible segments:', visibleSegments.length, 'of', segments.length)
-      onViewportChange(visibleSegments)
+
+      if (onBoundsChange) {
+        onBoundsChange({
+          north: bounds.getNorth(),
+          south: bounds.getSouth(),
+          east: bounds.getEast(),
+          west: bounds.getWest(),
+        })
+      }
+
+      if (onViewportChange) {
+        const visibleSegments = segments.filter(segment => {
+          return segment.coordinates.some(([lat, lng]) => bounds.contains([lat, lng]))
+        })
+        onViewportChange(visibleSegments)
+      }
     }
-  }, [segments, onViewportChange, map])
+  }, [segments, onViewportChange, onBoundsChange, map])
 
   return null
 }
@@ -232,6 +254,7 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
   const [focusedSegmentIndex, setFocusedSegmentIndex] = useState(-1)
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false)
   const mapContainerRef = useRef<HTMLDivElement>(null)
+  const { updateBounds } = useSidewalkData()
 
   useEffect(() => {
     setIsClient(true)
@@ -313,6 +336,7 @@ export default function Map({ segments, filters, onSegmentClick, onViewportChang
         <MapEvents
           onMapClick={handleMapClick}
           onViewportChange={handleViewportChange}
+          onBoundsChange={updateBounds}
           segments={segments}
         />
         <MapController zoomToSegment={zoomToSegment} segments={segments} />
