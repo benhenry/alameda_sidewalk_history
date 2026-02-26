@@ -14,11 +14,11 @@
 - The `docs-reviewer` agent handles CHANGELOG and documentation updates after code changes
 
 ### **Test Coverage Requirements**
-- **Current threshold: 20% minimum** (realistic for current codebase state)
+- **Current threshold: 70% minimum** (statements, branches, functions, lines)
 - **ALWAYS verify tests when adding, changing, or modifying code under test**
 - **Run `npm run test:ci` before committing changes**
-- **All 212+ tests must pass before deployment**
-- **Goal: Gradually increase coverage as new features are added**
+- **All 659+ tests must pass before deployment (60 test suites)**
+- **Current coverage: 78.11% stmts, 70.44% branches, 73.51% functions, 80.2% lines**
 
 ---
 
@@ -218,9 +218,9 @@ export const dynamic = 'force-dynamic'
 ## Testing Strategy & Coverage
 
 ### Current Test Coverage
-- **Minimum Threshold**: 20% (configured in jest.config.js)
-- **Current State**: 212+ tests across 26 test suites
-- **Goal**: Gradually increase coverage as new features are added
+- **Minimum Threshold**: 70% (configured in jest.config.js)
+- **Current State**: 659+ tests across 60 test suites
+- **Coverage**: 78.11% stmts, 70.44% branches, 73.51% functions, 80.2% lines
 
 ### Test Commands
 ```bash
@@ -291,7 +291,7 @@ npm run test:ci      # CI mode with coverage
 - **Workflow**: `.github/workflows/ci.yml`
 - **Triggers**: PRs and pushes to main
 - **Jobs**: Test (Node 18 & 20), Build
-- **Coverage**: 20% minimum threshold enforced
+- **Coverage**: 70% minimum threshold enforced
 
 ---
 
@@ -344,8 +344,8 @@ npm run test:ci      # CI mode with coverage
 Before ending any Claude session:
 
 - [ ] All TodoWrite tasks marked complete
-- [ ] **All tests passing (`npm run test:ci`)** - currently 212+ tests
-- [ ] **Coverage meets 20% minimum threshold**
+- [ ] **All tests passing (`npm run test:ci`)** - currently 659+ tests
+- [ ] **Coverage meets 70% minimum threshold**
 - [ ] TypeScript validation clean (`npm run typecheck`)
 - [ ] Build successful (`npm run build`)
 - [ ] Git status clean (commit changes if needed)

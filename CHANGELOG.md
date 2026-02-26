@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Testing - Coverage Expansion to 70% Threshold (2026-02-26)
+
+**Test suite expanded from 212 to 659 tests (60 suites):**
+- Coverage raised from ~30% to 78.11% statements, 70.44% branches, 73.51% functions, 80.2% lines
+- Jest threshold increased from 20% to 70% across all metrics
+- Added exclusions for untestable files (database backends, email, GooglePlacesInput, page components)
+
+**New test coverage areas:**
+- API route tests: admin endpoints (batch-correct, conflicts, import-osm, perf, segments, test-email), segment CRUD (history, comments, approved-geometries), photos, autocomplete (blocks, contractors), reference-sidewalks, reverse-geocode, sidewalks
+- Component tests: UserMenu, AuthModal, AutocompleteInput, ContributeModal, Toast, AdminSegmentEditor, Providers
+- Library tests: auth-context, captcha (bot detection, cleanup), api (dev auth header injection), get-auth-user (requireAuth, requireAdmin), perf-logger, sidewalk-context (viewport-aware fetching), storage, street-validation, batch-correction, dev-auth, dev-auth-api, useFocusTrap
+- Middleware test
+
+**Test fixes applied:**
+- Rate-limiter cleanup test: changed from relying on setInterval to directly calling cleanup()
+- TypeScript errors resolved in SegmentForm mock casts, UserMenu window.location, get-auth-user NODE_ENV assignment
+
+**Map component (Map.tsx) - Viewport bounds integration:**
+- Connected Map component to sidewalk-context via `updateBounds` for viewport-based data loading
+- Removed console.log debug statements from viewport change handler
+- MapEvents component now accepts `onBoundsChange` callback for sidewalk context integration
+
+---
+
 ### Performance - API Optimization and Viewport-Based Loading (2026-02-26)
 
 **Segments API -- DB-Level Filtering:**
