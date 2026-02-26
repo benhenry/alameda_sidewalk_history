@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance - API Optimization and Viewport-Based Loading (2026-02-26)
+
+**Segments API -- DB-Level Filtering:**
+- Added `getFilteredSegments(filters)` to all database backends (postgres, sqlite-async, sqlite-stub, abstraction layer)
+- `/api/segments` now builds parameterized SQL WHERE clauses instead of fetching all segments and filtering in memory
+- Added `Cache-Control: public, s-maxage=60, stale-while-revalidate=300` for CDN caching
+
+**Sidewalks API -- Viewport-Based Loading:**
+- `/api/sidewalks` now accepts optional `bounds` query params (north/south/east/west)
+- Leverages existing PostGIS `ST_Intersects` spatial filtering for bounded queries
+- Added `Cache-Control: public, s-maxage=3600, stale-while-revalidate=86400` for aggressive CDN caching
+- `sidewalk-context.tsx` updated with debounced viewport-aware fetching, bounds tracking, and data accumulation with deduplication
+
+**Documentation:**
+- Added `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` to `.env.example`, `.env.local.example`, `.env.production.example`
+
+**Files Changed:**
+- `src/lib/database-postgres.ts` - New `getFilteredSegments()` with parameterized queries
+- `src/lib/database-sqlite-async.ts` - In-memory filter fallback
+- `src/lib/database-sqlite-stub.ts` - Production stub
+- `src/lib/database.ts` - Abstraction layer wrapper
+- `src/app/api/segments/route.ts` - DB-level filtering + cache headers
+- `src/app/api/sidewalks/route.ts` - Bounds params + cache headers
+- `src/lib/sidewalk-context.tsx` - Viewport-aware fetching with debounce
+- `.env.example`, `.env.local.example`, `.env.production.example` - Google Maps API key docs
+
+---
+
 ### Changed - Infrastructure Migration to Vercel + Supabase (2026-02-24)
 
 **MAJOR CHANGE: Migrated from Google Cloud (Cloud Run + Cloud SQL + GCS) to Vercel + Supabase**
