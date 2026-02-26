@@ -13,13 +13,23 @@ const customJestConfig = {
     '!src/**/*.stories.{js,jsx,ts,tsx}',
     '!src/app/layout.tsx',
     '!src/app/globals.css',
+    // Exclude files requiring live DB connections or external services (untestable in unit tests)
+    '!src/lib/database-postgres.ts',
+    '!src/lib/database-sqlite.ts',
+    '!src/lib/database-sqlite-async.ts',
+    '!src/lib/database-sqlite-stub.ts',
+    '!src/lib/email.ts',
+    '!src/components/GooglePlacesInput.tsx',
+    // Exclude page-level components (integration test territory)
+    '!src/app/page.tsx',
+    '!src/app/admin/page.tsx',
   ],
   coverageThreshold: {
     global: {
-      branches: 20,
-      functions: 15,
-      lines: 20,
-      statements: 20,
+      branches: 70,
+      functions: 70,
+      lines: 70,
+      statements: 70,
     },
   },
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/', '<rootDir>/e2e/'],

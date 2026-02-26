@@ -107,6 +107,74 @@ describe('/api/segments GET', () => {
     expect(data).toHaveLength(1)
     expect(data[0].contractor).toBe('Smith Construction Co.')
   })
+
+  it('should pass year filter as integer to getFilteredSegments', async () => {
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost:3000/api/segments?year=1925')
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(getFilteredSegments).toHaveBeenCalledWith({ year: 1925 })
+  })
+
+  it('should pass street filter to getFilteredSegments', async () => {
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost:3000/api/segments?street=Park%20Street')
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(getFilteredSegments).toHaveBeenCalledWith({ street: 'Park Street' })
+  })
+
+  it('should pass combined filters to getFilteredSegments', async () => {
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([])
+
+    const request = new NextRequest(
+      'http://localhost:3000/api/segments?contractor=Smith&year=1925&street=Park%20Street'
+    )
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(getFilteredSegments).toHaveBeenCalledWith({
+      contractor: 'Smith',
+      year: 1925,
+      street: 'Park Street',
+    })
+  })
+
+  it('should call getFilteredSegments with undefined when no filters', async () => {
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost:3000/api/segments')
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    expect(getFilteredSegments).toHaveBeenCalledWith(undefined)
+  })
+
+  it('should return 500 when database throws', async () => {
+    ;(getFilteredSegments as jest.Mock).mockRejectedValue(new Error('DB connection failed'))
+
+    const request = new NextRequest('http://localhost:3000/api/segments')
+    const response = await GET(request)
+
+    expect(response.status).toBe(500)
+    const data = await response.json()
+    expect(data.error).toBe('Failed to fetch segments')
+  })
+
+  it('should return empty array when no segments exist', async () => {
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([])
+
+    const request = new NextRequest('http://localhost:3000/api/segments')
+    const response = await GET(request)
+
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data).toEqual([])
+  })
 })
 
 describe('/api/segments POST', () => {
@@ -210,5 +278,68 @@ describe('/api/segments POST', () => {
     expect(response.status).toBe(400)
     const data = await response.json()
     expect(data.error).toBe('Missing required fields')
+  })
+
+  it('should return 500 when createSegment throws', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: 'test-user-id', email: 'test@example.com' }
+    })
+
+    ;(createSegment as jest.Mock).mockRejectedValue(new Error('DB write failed'))
+
+    const request = new NextRequest('http://localhost:3000/api/segments', {
+      method: 'POST',
+      body: JSON.stringify({
+        coordinates: [[37.7652, -122.2416]],
+        contractor: 'Test',
+        year: 2020,
+        street: 'Test St',
+        block: '100',
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(500)
+    const data = await response.json()
+    expect(data.error).toBe('Failed to create segment')
+  })
+
+  it('should set notes to undefined when not provided', async () => {
+    mockAuth.mockResolvedValue({
+      user: { id: 'test-user-id', email: 'test@example.com' }
+    })
+
+    ;(createSegment as jest.Mock).mockResolvedValue({
+      id: 'mock-uuid-123',
+      coordinates: [[37.7652, -122.2416]],
+      contractor: 'Test',
+      year: 2020,
+      street: 'Test St',
+      block: '100',
+      status: 'pending',
+    })
+    ;(updateContractorStats as jest.Mock).mockResolvedValue(undefined)
+
+    const request = new NextRequest('http://localhost:3000/api/segments', {
+      method: 'POST',
+      body: JSON.stringify({
+        coordinates: [[37.7652, -122.2416]],
+        contractor: 'Test',
+        year: 2020,
+        street: 'Test St',
+        block: '100',
+        // notes intentionally omitted
+      }),
+    })
+
+    const response = await POST(request)
+
+    expect(response.status).toBe(201)
+    expect(createSegment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notes: undefined,
+      })
+    )
   })
 })

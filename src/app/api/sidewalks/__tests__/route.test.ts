@@ -90,6 +90,79 @@ describe('/api/sidewalks GET', () => {
     expect(data.coordinates).toBe(0)
   })
 
+  it('should pass bounds parameters to getAllReferenceSidewalks', async () => {
+    ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue([])
+
+    const response = await GET(makeRequest(
+      'http://localhost:3000/api/sidewalks?north=37.80&south=37.76&east=-122.22&west=-122.28'
+    ))
+
+    expect(response.status).toBe(200)
+    expect(getAllReferenceSidewalks).toHaveBeenCalledWith({
+      north: 37.80,
+      south: 37.76,
+      east: -122.22,
+      west: -122.28,
+    })
+  })
+
+  it('should pass undefined bounds when only some params provided', async () => {
+    ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue([])
+
+    // Only north and south provided, missing east and west
+    const response = await GET(makeRequest(
+      'http://localhost:3000/api/sidewalks?north=37.80&south=37.76'
+    ))
+
+    expect(response.status).toBe(200)
+    expect(getAllReferenceSidewalks).toHaveBeenCalledWith(undefined)
+  })
+
+  it('should pass undefined bounds when no params provided', async () => {
+    ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue([])
+
+    const response = await GET(makeRequest())
+
+    expect(response.status).toBe(200)
+    expect(getAllReferenceSidewalks).toHaveBeenCalledWith(undefined)
+  })
+
+  it('should return correct shape for empty results', async () => {
+    ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue([])
+
+    const response = await GET(makeRequest())
+
+    expect(response.status).toBe(200)
+    const data = await response.json()
+    expect(data).toEqual({
+      lineStrings: [],
+      coordinates: 0,
+      count: 0,
+      source: 'reference_sidewalks',
+      totalSidewalks: 0,
+    })
+  })
+
+  it('should handle LineStrings with single coordinate (should be filtered)', async () => {
+    const mockSidewalks = [
+      {
+        id: 1,
+        geometry: {
+          type: 'LineString',
+          coordinates: [[-122.2416, 37.7652]], // Only one point - not valid
+        }
+      }
+    ]
+
+    ;(getAllReferenceSidewalks as jest.Mock).mockResolvedValue(mockSidewalks)
+
+    const response = await GET(makeRequest())
+    const data = await response.json()
+
+    expect(data.lineStrings).toHaveLength(0)
+    expect(data.totalSidewalks).toBe(1)
+  })
+
   it('should skip invalid geometries', async () => {
     const mockSidewalks = [
       {

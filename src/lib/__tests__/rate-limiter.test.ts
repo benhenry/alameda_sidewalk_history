@@ -153,7 +153,7 @@ describe('rate-limiter', () => {
 
     it('should return 429 response for blocked requests', async () => {
       const req = createMockRequest('192.168.30.2')
-      
+
       // Exhaust the limit
       for (let i = 0; i < 5; i++) {
         await authLimiter.isAllowed(req)
@@ -162,6 +162,43 @@ describe('rate-limiter', () => {
       const response = await withRateLimit(req, authLimiter)
       expect(response).not.toBeNull()
       expect(response?.status).toBe(429)
+
+      const body = await response!.json()
+      expect(body.error).toContain('Too many requests')
+      expect(body.retryAfter).toBeGreaterThan(0)
+    })
+  })
+
+  describe('cleanup and edge cases', () => {
+    it('should cleanup expired entries', async () => {
+      const req = createMockRequest('192.168.40.1')
+      await contributionLimiter.isAllowed(req)
+
+      // The store should have an entry
+      expect((contributionLimiter as any).store.size).toBe(1)
+
+      // Advance time past the window so the entry is expired
+      jest.advanceTimersByTime(60 * 60 * 1000 + 1000)
+
+      // Manually trigger cleanup (the setInterval was registered at module load
+      // before fake timers, so we call cleanup directly)
+      ;(contributionLimiter as any).cleanup()
+
+      // After cleanup, the expired entry should be removed
+      expect((contributionLimiter as any).store.size).toBe(0)
+    })
+
+    it('should use x-real-ip when x-forwarded-for is not set', async () => {
+      const req = createMockRequest('', { 'x-real-ip': '10.0.0.1' })
+      // Remove x-forwarded-for by making get() return null for it
+      const origGet = req.headers.get.bind(req.headers)
+      ;(req.headers as any).get = (name: string) => {
+        if (name === 'x-forwarded-for') return null
+        return origGet(name)
+      }
+
+      const result = await authLimiter.isAllowed(req)
+      expect(result.allowed).toBe(true)
     })
   })
 })

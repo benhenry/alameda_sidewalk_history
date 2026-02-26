@@ -111,26 +111,84 @@ describe('captcha', () => {
   })
 
   describe('detectBotBehavior', () => {
+    const createRequest = (ua: string, headers: Record<string, string | null> = {}) => ({
+      headers: {
+        get: (name: string) => {
+          if (name === 'user-agent') return ua
+          if (name in headers) return headers[name]
+          if (name === 'accept') return 'text/html'
+          if (name === 'accept-language') return 'en-US'
+          return null
+        }
+      }
+    })
+
     it('should detect bot user agents', () => {
-      const request = { headers: { get: (name: string) => name === 'user-agent' ? 'curl/7.68.0' : null } }
+      const request = createRequest('curl/7.68.0')
       const result = detectBotBehavior(request)
       expect(result.isBot).toBe(true)
       expect(result.reason).toBe('Bot user agent detected')
     })
 
     it('should pass legitimate requests', () => {
-      const request = { 
-        headers: { 
-          get: (name: string) => {
-            if (name === 'user-agent') return 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            if (name === 'accept') return 'text/html,application/xhtml+xml'
-            if (name === 'accept-language') return 'en-US,en;q=0.9'
-            return null
-          }
-        } 
-      }
+      const request = createRequest('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
       const result = detectBotBehavior(request)
       expect(result.isBot).toBe(false)
+    })
+
+    it('should detect missing accept header', () => {
+      const request = createRequest('Mozilla/5.0', { 'accept': null })
+      const result = detectBotBehavior(request)
+      expect(result.isBot).toBe(true)
+      expect(result.reason).toBe('Missing accept header')
+    })
+
+    it('should detect missing accept-language header', () => {
+      const request = createRequest('Mozilla/5.0', { 'accept-language': null })
+      const result = detectBotBehavior(request)
+      expect(result.isBot).toBe(true)
+      expect(result.reason).toBe('Missing accept-language header')
+    })
+
+    it('should detect suspicious referer containing bot', () => {
+      const request = createRequest('Mozilla/5.0', { 'referer': 'https://botfarm.example.com' })
+      const result = detectBotBehavior(request)
+      expect(result.isBot).toBe(true)
+      expect(result.reason).toBe('Suspicious referer')
+    })
+
+    it('should allow normal referer', () => {
+      const request = createRequest('Mozilla/5.0', { 'referer': 'https://google.com' })
+      const result = detectBotBehavior(request)
+      expect(result.isBot).toBe(false)
+    })
+  })
+
+  describe('cleanup', () => {
+    it('should remove expired entries from store', () => {
+      const challenge = captchaManager.generateChallenge()
+      const store = (captchaManager as any).challenges
+
+      // Manually expire the challenge
+      const entry = store.get(challenge.id)
+      entry.expiresAt = Date.now() - 1000
+
+      // Trigger cleanup
+      ;(captchaManager as any).cleanup()
+
+      expect(store.has(challenge.id)).toBe(false)
+    })
+
+    it('should keep non-expired entries', () => {
+      const challenge = captchaManager.generateChallenge()
+      const store = (captchaManager as any).challenges
+
+      ;(captchaManager as any).cleanup()
+
+      expect(store.has(challenge.id)).toBe(true)
+
+      // Clean up
+      store.delete(challenge.id)
     })
   })
 })
