@@ -9,7 +9,7 @@ jest.mock('@/auth', () => ({
 
 // Mock the database and validation modules
 jest.mock('@/lib/database', () => ({
-  getAllSegments: jest.fn(),
+  getFilteredSegments: jest.fn(),
   createSegment: jest.fn(),
   updateContractorStats: jest.fn(),
   parseCoordinates: (str: string) => JSON.parse(str),
@@ -22,7 +22,7 @@ jest.mock('uuid', () => ({
   v4: () => 'mock-uuid-123',
 }))
 
-import { getAllSegments, createSegment, updateContractorStats } from '@/lib/database'
+import { getFilteredSegments, createSegment, updateContractorStats } from '@/lib/database'
 
 describe('/api/segments GET', () => {
   beforeEach(() => {
@@ -46,13 +46,13 @@ describe('/api/segments GET', () => {
       }
     ]
 
-    ;(getAllSegments as jest.Mock).mockResolvedValue(mockSegments)
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue(mockSegments)
 
     const request = new NextRequest('http://localhost:3000/api/segments')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
-    expect(getAllSegments).toHaveBeenCalled()
+    expect(getFilteredSegments).toHaveBeenCalled()
 
     const data = await response.json()
     expect(data[0]).toMatchObject({
@@ -95,12 +95,13 @@ describe('/api/segments GET', () => {
       }
     ]
 
-    ;(getAllSegments as jest.Mock).mockResolvedValue(mockSegments)
+    ;(getFilteredSegments as jest.Mock).mockResolvedValue([mockSegments[0]])
 
     const request = new NextRequest('http://localhost:3000/api/segments?contractor=Smith%20Construction%20Co.')
     const response = await GET(request)
 
     expect(response.status).toBe(200)
+    expect(getFilteredSegments).toHaveBeenCalledWith({ contractor: 'Smith Construction Co.' })
 
     const data = await response.json()
     expect(data).toHaveLength(1)

@@ -38,6 +38,14 @@ export async function getAllSegments(): Promise<SidewalkSegment[]> {
   throw new Error('SQLite not available in production')
 }
 
+export async function getFilteredSegments(filters?: {
+  contractor?: string
+  year?: number
+  street?: string
+}): Promise<SidewalkSegment[]> {
+  throw new Error('SQLite not available in production')
+}
+
 export async function getSegmentById(id: string): Promise<SidewalkSegment | null> {
   throw new Error('SQLite not available in production')
 }
@@ -142,6 +150,7 @@ export default {
   getUserById,
   updateUserLastLogin,
   getAllSegments,
+  getFilteredSegments,
   getSegmentById,
   createSegment,
   updateSegment,

@@ -56,6 +56,15 @@ export async function getAllSegments(): Promise<SidewalkSegment[]> {
   return dbModule.getAllSegments()
 }
 
+export async function getFilteredSegments(filters?: {
+  contractor?: string
+  year?: number
+  street?: string
+}): Promise<SidewalkSegment[]> {
+  const dbModule = await getDbModule()
+  return dbModule.getFilteredSegments(filters)
+}
+
 export async function getSegmentById(id: string): Promise<SidewalkSegment | null> {
   const dbModule = await getDbModule()
   return dbModule.getSegmentById(id)

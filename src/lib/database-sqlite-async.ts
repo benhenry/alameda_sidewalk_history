@@ -50,6 +50,24 @@ export async function getAllSegments(): Promise<SidewalkSegment[]> {
   return segments.map(formatSegmentRow)
 }
 
+export async function getFilteredSegments(filters?: {
+  contractor?: string
+  year?: number
+  street?: string
+}): Promise<SidewalkSegment[]> {
+  let segments = await getAllSegments()
+  if (filters?.contractor) {
+    segments = segments.filter(s => s.contractor === filters.contractor)
+  }
+  if (filters?.year) {
+    segments = segments.filter(s => s.year === filters.year)
+  }
+  if (filters?.street) {
+    segments = segments.filter(s => s.street === filters.street)
+  }
+  return segments
+}
+
 export async function getSegmentById(id: string): Promise<SidewalkSegment | null> {
   const segment = sqliteDb.segmentQueries.getById.get(id)
   return segment ? formatSegmentRow(segment) : null
@@ -306,6 +324,7 @@ export default {
   getUserById,
   updateUserLastLogin,
   getAllSegments,
+  getFilteredSegments,
   getSegmentById,
   createSegment,
   updateSegment,

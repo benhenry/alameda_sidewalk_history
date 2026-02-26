@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllSegments, createSegment, updateContractorStats } from '@/lib/database'
+import { getFilteredSegments, createSegment, updateContractorStats } from '@/lib/database'
 import { getAuthUser } from '@/lib/get-auth-user'
 import { logPerf } from '@/lib/perf-logger'
 
@@ -13,25 +13,23 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year')
     const street = searchParams.get('street')
 
-    // For now, get all segments and filter in memory
-    // TODO: Add filtering support to database abstraction
-    let segments = await getAllSegments()
+    // Use DB-level filtering instead of fetching all + in-memory filter
+    const filters: { contractor?: string; year?: number; street?: string } = {}
+    if (contractor) filters.contractor = contractor
+    if (year) filters.year = parseInt(year)
+    if (street) filters.street = street
 
-    // Apply filters
-    if (contractor) {
-      segments = segments.filter(s => s.contractor === contractor)
-    }
-    if (year) {
-      segments = segments.filter(s => s.year === parseInt(year))
-    }
-    if (street) {
-      segments = segments.filter(s => s.street === street)
-    }
+    const segments = await getFilteredSegments(
+      Object.keys(filters).length > 0 ? filters : undefined
+    )
 
     logPerf('api.GET./api/segments', performance.now() - apiStart, { count: segments.length })
 
-    // Segments are already formatted from the database abstraction
-    return NextResponse.json(segments)
+    return NextResponse.json(segments, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=300',
+      },
+    })
   } catch (error) {
     console.error('Error fetching segments:', error)
     return NextResponse.json({ error: 'Failed to fetch segments' }, { status: 500 })

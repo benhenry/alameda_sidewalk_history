@@ -147,6 +147,49 @@ export const getAllSegments = async (): Promise<SidewalkSegment[]> => {
   }, 'getAllSegments')
 }
 
+export const getFilteredSegments = async (filters?: {
+  contractor?: string
+  year?: number
+  street?: string
+}): Promise<SidewalkSegment[]> => {
+  return withDatabase(async (client) => {
+    let query = `
+      SELECT s.*, u.username as created_by_username
+      FROM sidewalk_segments s
+      LEFT JOIN users u ON s.created_by = u.id
+      WHERE s.status = 'approved'
+    `
+    const params: any[] = []
+    let paramIndex = 1
+
+    if (filters?.contractor) {
+      query += ` AND s.contractor = $${paramIndex}`
+      params.push(filters.contractor)
+      paramIndex++
+    }
+    if (filters?.year) {
+      query += ` AND s.year = $${paramIndex}`
+      params.push(filters.year)
+      paramIndex++
+    }
+    if (filters?.street) {
+      query += ` AND s.street = $${paramIndex}`
+      params.push(filters.street)
+      paramIndex++
+    }
+
+    query += ' ORDER BY s.created_at DESC'
+
+    const result = await client.query(query, params)
+    return result.rows.map(row => ({
+      ...row,
+      coordinates: row.coordinates,
+      special_marks: row.special_marks || [],
+      specialMarks: row.special_marks || [],
+    }))
+  }, 'getFilteredSegments')
+}
+
 export const getSegmentById = async (id: string): Promise<SidewalkSegment | null> => {
   return withDatabase(async (client) => {
     const result = await client.query(
@@ -1228,6 +1271,7 @@ export default {
   getUserById,
   updateUserLastLogin,
   getAllSegments,
+  getFilteredSegments,
   getSegmentById,
   createSegment,
   updateSegment,
